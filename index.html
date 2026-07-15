@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stark HUD Mark III</title>
+    <title>Stark HUD - Advanced State</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
@@ -21,41 +21,66 @@
             box-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
             border-color: rgba(0, 255, 255, 0.8);
         }
-        .pinch-active {
-            box-shadow: 0 0 25px rgba(255, 0, 0, 0.9) !important;
-            border-color: rgba(255, 0, 0, 1) !important;
+        .sci-fi-glow-red {
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+            border-color: rgba(255, 0, 0, 0.8);
         }
+        .pinch-active {
+            box-shadow: 0 0 25px rgba(255, 255, 255, 0.9) !important;
+            border-color: rgba(255, 255, 255, 1) !important;
+            background-color: rgba(255, 255, 255, 0.3) !important;
+        }
+        /* Smooth transitions for showing/hiding */
+        .fade-in { animation: fadeIn 0.5s ease-in forwards; }
+        .fade-out { animation: fadeOut 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.9) scaleX(-1); } to { opacity: 1; transform: scale(1) scaleX(-1); } }
+        @keyframes fadeOut { from { opacity: 1; transform: scale(1) scaleX(-1); } to { opacity: 0; transform: scale(0.9) scaleX(-1); } }
     </style>
 </head>
 <body class="bg-black overflow-hidden flex items-center justify-center h-screen font-mono text-cyan-400">
 
     <video id="input_video" class="absolute inset-0 w-full h-full object-cover opacity-40"></video>
-    
     <canvas id="output_canvas" class="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none"></canvas>
 
     <div id="hud-container" class="absolute inset-0 w-full h-full z-20 pointer-events-none">
         
-        <div id="virtual_screen" class="absolute w-[350px] h-[250px] bg-cyan-950/40 border-2 rounded-lg sci-fi-glow flex flex-col p-4 text-cyan-200 pointer-events-auto origin-center" style="left: 30%; top: 25%; transform: scaleX(-1) scale(1);">
-            <div class="flex justify-between items-center border-b border-cyan-500 pb-1 mb-2">
-                <span class="text-[10px]">JARVIS: ONLINE</span>
-                <span class="text-[10px]">MARK-III</span>
-            </div>
-            <p class="text-sm font-bold text-center mt-4">TARGET INTERFACE</p>
-            <div class="w-full bg-cyan-900/50 h-32 rounded border border-cyan-500/30 flex items-center justify-center p-2 text-xs text-center">
-                Use Two Hands to Zoom!<br>Pinch with One Hand to Drag.
+        <div id="standby_screen" class="absolute inset-0 flex items-center justify-center">
+            <div id="btn_on" class="virtual-button w-48 h-16 bg-cyan-900/30 border-2 border-cyan-400 rounded-lg sci-fi-glow flex items-center justify-center text-xl font-bold pointer-events-auto transition-colors">
+                INITIATE SYSTEM
             </div>
         </div>
 
-        <div id="btn_1" class="virtual-button absolute w-32 h-14 bg-cyan-900/30 border-2 border-cyan-400 rounded sci-fi-glow flex items-center justify-center text-sm font-bold pointer-events-auto" style="left: 75%; top: 30%;">
-            SYSTEM ON
-        </div>
-        <div id="btn_2" class="virtual-button absolute w-32 h-14 bg-red-900/30 border-2 border-red-400 rounded sci-fi-glow flex items-center justify-center text-sm font-bold pointer-events-auto" style="left: 75%; top: 45%;">
-            SYSTEM OFF
+        <div id="main_hud" class="hidden absolute inset-0">
+            <div id="virtual_screen" class="absolute w-[350px] h-[250px] bg-cyan-950/40 border-2 rounded-lg sci-fi-glow flex flex-col p-4 text-cyan-200 pointer-events-auto origin-center" style="left: 20%; top: 25%; transform: scaleX(-1) scale(1);">
+                <div class="flex justify-between items-center border-b border-cyan-500 pb-1 mb-2">
+                    <span class="text-[10px]">JARVIS: ONLINE</span>
+                    <span class="text-[10px]">MARK-IV</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center justify-center">
+                    <div class="w-16 h-16 rounded-full border-4 border-cyan-400 border-t-transparent animate-spin mb-4"></div>
+                    <p class="text-sm font-bold">SYSTEM RUNNING</p>
+                </div>
+            </div>
+
+            <div id="btn_off" class="virtual-button absolute w-32 h-14 bg-red-900/30 border-2 border-red-400 rounded sci-fi-glow-red flex items-center justify-center text-sm font-bold pointer-events-auto text-red-200" style="left: 75%; top: 40%;">
+                SYSTEM OFF
+            </div>
         </div>
 
-        <div class="absolute bottom-6 left-6 w-96 text-xs bg-black/50 p-3 rounded border border-cyan-500/20">
-            <div>[SYS] MediaPipe Status: <span id="status" class="text-yellow-400">Loading Model...</span></div>
-            <div id="log_action" class="text-white font-bold mt-1">> Ready</div>
+        <div id="shutdown_modal" class="hidden absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-auto z-30">
+            <div class="w-80 h-48 bg-gray-900 border-2 border-red-500 rounded-lg sci-fi-glow-red flex flex-col items-center justify-center p-6 text-center shadow-2xl" style="transform: scaleX(-1);">
+                <p class="text-2xl font-bold text-red-400 mb-2">GOODBYE, SIR.</p>
+                <p class="text-xs text-gray-400 mb-6">Shutting down all primary systems...</p>
+                
+                <div id="btn_ok" class="virtual-button w-24 h-10 bg-gray-800 border border-red-400 rounded sci-fi-glow-red flex items-center justify-center text-sm font-bold text-red-200">
+                    OK
+                </div>
+            </div>
+        </div>
+
+        <div class="absolute bottom-6 left-6 w-96 text-xs bg-black/50 p-3 rounded border border-cyan-500/20" style="transform: scaleX(-1);">
+            <div>[SYS] Hand Tracking: <span id="status" class="text-yellow-400">Loading...</span></div>
+            <div id="log_action" class="text-white font-bold mt-1">> Standby Mode</div>
         </div>
     </div>
 
@@ -66,17 +91,17 @@
         const logAction = document.getElementById('log_action');
         const statusEl = document.getElementById('status');
         const virtualScreen = document.getElementById('virtual_screen');
-        const buttons = document.querySelectorAll('.virtual-button');
+        
+        // UI Sections
+        const standbyScreen = document.getElementById('standby_screen');
+        const mainHud = document.getElementById('main_hud');
+        const shutdownModal = document.getElementById('shutdown_modal');
 
         // States
         let isGrabbing = false;
         let grabOffset = { x: 0, y: 0 };
-        let currentScale = 1;
-        let isZooming = false;
-        let initialHandDist = 0;
-        let initialScale = 1;
+        let isClickLocked = false; // Prevents multiple clicks from one continuous pinch
 
-        // Resize canvas
         function resizeCanvas() {
             canvasElement.width = window.innerWidth;
             canvasElement.height = window.innerHeight;
@@ -95,86 +120,102 @@
             const thumbTip = landmarks[4];
             const indexTip = landmarks[8];
             const dist = Math.sqrt(Math.pow(thumbTip.x - indexTip.x, 2) + Math.pow(thumbTip.y - indexTip.y, 2));
-            return dist < 0.05; // Pinch threshold (Adjust if needed)
+            return dist < 0.05;
+        }
+
+        // Handle logical actions for buttons
+        function handleAction(buttonId) {
+            if (buttonId === 'btn_on') {
+                logAction.innerText = "> Systems Activated";
+                standbyScreen.classList.add('hidden');
+                mainHud.classList.remove('hidden');
+                mainHud.classList.add('fade-in');
+            } 
+            else if (buttonId === 'btn_off') {
+                logAction.innerText = "> Initiating Shutdown...";
+                mainHud.classList.add('hidden');
+                shutdownModal.classList.remove('hidden');
+            }
+            else if (buttonId === 'btn_ok') {
+                logAction.innerText = "> Standby Mode";
+                shutdownModal.classList.add('hidden');
+                standbyScreen.classList.remove('hidden');
+            }
         }
 
         function onResults(results) {
-            statusEl.innerText = "Tracking Active";
+            statusEl.innerText = "Active";
             statusEl.className = "text-green-400";
 
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-            // Draw hand skeleton grids so you know it works
             if (results.multiHandLandmarks) {
                 for (const landmarks of results.multiHandLandmarks) {
                     drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FFCC', lineWidth: 2});
                     drawLandmarks(canvasCtx, landmarks, {color: '#FF3366', lineWidth: 1, radius: 3});
                 }
 
-                // --- 1. ZOOM LOGIC (Two Hands) ---
-                if (results.multiHandLandmarks.length >= 2) {
-                    const hand1 = normalizeToScreen(results.multiHandLandmarks[0][8]); // Left Index
-                    const hand2 = normalizeToScreen(results.multiHandLandmarks[1][8]); // Right Index
-
-                    const currentDist = Math.sqrt(Math.pow(hand1.x - hand2.x, 2) + Math.pow(hand1.y - hand2.y, 2));
-
-                    if (!isZooming) {
-                        isZooming = true;
-                        initialHandDist = currentDist;
-                        initialScale = currentScale;
-                        logAction.innerText = "> Zooming Mode Active";
-                    } else {
-                        let factor = currentDist / initialHandDist;
-                        currentScale = Math.max(0.5, Math.min(initialScale * factor, 2.5)); // Min 0.5x, Max 2.5x
-                        virtualScreen.style.transform = `scaleX(-1) scale(${currentScale})`;
-                    }
-                } else {
-                    isZooming = false;
-                }
-
-                // --- 2. SINGLE HAND INTERACTION (Click & Drag) ---
-                if (results.multiHandLandmarks.length > 0 && !isZooming) {
+                if (results.multiHandLandmarks.length > 0) {
                     const hand = results.multiHandLandmarks[0];
                     const indexTip = normalizeToScreen(hand[8]);
                     const isPinching = getPinch(hand);
 
-                    // A. Button Clicks
-                    buttons.forEach(btn => {
+                    // --- 1. BUTTON INTERACTIONS ---
+                    // Select only buttons that are currently visible on screen
+                    const activeButtons = Array.from(document.querySelectorAll('.virtual-button')).filter(btn => {
+                        return btn.closest('.hidden') === null;
+                    });
+
+                    let hoveringButton = false;
+
+                    activeButtons.forEach(btn => {
                         const rect = btn.getBoundingClientRect();
+                        // Check if index finger is inside button boundaries
                         if (indexTip.x > rect.left && indexTip.x < rect.right && indexTip.y > rect.top && indexTip.y < rect.bottom) {
+                            hoveringButton = true;
+                            
                             if (isPinching) {
                                 btn.classList.add('pinch-active');
-                                logAction.innerText = `> Clicked: ${btn.innerText}`;
+                                if (!isClickLocked) {
+                                    isClickLocked = true; // Lock the click
+                                    handleAction(btn.id);
+                                }
                             } else {
                                 btn.classList.remove('pinch-active');
-                                btn.style.backgroundColor = "rgba(0, 255, 255, 0.2)";
+                                btn.style.backgroundColor = "rgba(0, 255, 255, 0.2)"; // Hover state
                             }
                         } else {
+                            btn.classList.remove('pinch-active');
                             btn.style.backgroundColor = "";
                         }
                     });
 
-                    // B. Screen Dragging
-                    const screenRect = virtualScreen.getBoundingClientRect();
-                    const overScreen = indexTip.x > screenRect.left && indexTip.x < screenRect.right && indexTip.y > screenRect.top && indexTip.y < screenRect.bottom;
-
-                    if (overScreen && isPinching && !isGrabbing) {
-                        isGrabbing = true;
-                        virtualScreen.classList.add('pinch-active');
-                        grabOffset.x = indexTip.x - screenRect.left;
-                        grabOffset.y = indexTip.y - screenRect.top;
+                    // Unlock click mechanism when pinch is released
+                    if (!isPinching) {
+                        isClickLocked = false;
                     }
 
-                    if (isGrabbing) {
-                        if (isPinching) {
-                            virtualScreen.style.left = `${indexTip.x - grabOffset.x}px`;
-                            virtualScreen.style.top = `${indexTip.y - grabOffset.y}px`;
-                            logAction.innerText = `> Dragging Screen...`;
-                        } else {
-                            isGrabbing = false;
-                            virtualScreen.classList.remove('pinch-active');
-                            logAction.innerText = `> Screen Released`;
+                    // --- 2. DRAGGABLE SCREEN (Only if Main HUD is active) ---
+                    if (!mainHud.classList.contains('hidden') && !hoveringButton) {
+                        const screenRect = virtualScreen.getBoundingClientRect();
+                        const overScreen = indexTip.x > screenRect.left && indexTip.x < screenRect.right && indexTip.y > screenRect.top && indexTip.y < screenRect.bottom;
+
+                        if (overScreen && isPinching && !isGrabbing) {
+                            isGrabbing = true;
+                            virtualScreen.classList.add('pinch-active');
+                            grabOffset.x = indexTip.x - screenRect.left;
+                            grabOffset.y = indexTip.y - screenRect.top;
+                        }
+
+                        if (isGrabbing) {
+                            if (isPinching) {
+                                virtualScreen.style.left = `${indexTip.x - grabOffset.x}px`;
+                                virtualScreen.style.top = `${indexTip.y - grabOffset.y}px`;
+                            } else {
+                                isGrabbing = false;
+                                virtualScreen.classList.remove('pinch-active');
+                            }
                         }
                     }
                 }
@@ -182,7 +223,6 @@
             canvasCtx.restore();
         }
 
-        // Initialize MediaPipe Hands
         const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
         hands.setOptions({
             maxNumHands: 2,
