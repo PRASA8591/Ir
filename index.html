@@ -3,84 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stark HUD - Advanced State</title>
+    <title>Hacker OS Interface</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
     <style>
-        /* Mirror effect fix */
-        #input_video, #output_canvas, #hud-container {
-            transform: scaleX(-1);
+        /* Hacker Theme Colors & Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+        
+        body { font-family: 'VT323', monospace; text-transform: uppercase; }
+        
+        #input_video, #output_canvas, #hud-container { transform: scaleX(-1); }
+        #hud-container > * { transform: scaleX(-1); }
+
+        .hacker-glow {
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.8);
         }
-        #hud-container > * {
-            transform: scaleX(-1);
+        
+        .hacker-window {
+            background: rgba(0, 10, 0, 0.85);
+            border: 2px solid #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
         }
-        .sci-fi-glow {
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
-            border-color: rgba(0, 255, 255, 0.8);
+
+        .hacker-header {
+            background: #00ff00;
+            color: black;
+            font-weight: bold;
         }
-        .sci-fi-glow-red {
-            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
-            border-color: rgba(255, 0, 0, 0.8);
-        }
+
         .pinch-active {
-            box-shadow: 0 0 25px rgba(255, 255, 255, 0.9) !important;
-            border-color: rgba(255, 255, 255, 1) !important;
-            background-color: rgba(255, 255, 255, 0.3) !important;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 1) !important;
+            border-color: #fff !important;
+            background-color: rgba(0, 50, 0, 0.9) !important;
         }
-        /* Smooth transitions for showing/hiding */
-        .fade-in { animation: fadeIn 0.5s ease-in forwards; }
-        .fade-out { animation: fadeOut 0.5s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.9) scaleX(-1); } to { opacity: 1; transform: scale(1) scaleX(-1); } }
-        @keyframes fadeOut { from { opacity: 1; transform: scale(1) scaleX(-1); } to { opacity: 0; transform: scale(0.9) scaleX(-1); } }
     </style>
 </head>
-<body class="bg-black overflow-hidden flex items-center justify-center h-screen font-mono text-cyan-400">
+<body class="bg-black overflow-hidden flex items-center justify-center h-screen text-[#00ff00] select-none">
 
-    <video id="input_video" class="absolute inset-0 w-full h-full object-cover opacity-40"></video>
+    <video id="input_video" class="absolute inset-0 w-full h-full object-cover opacity-30"></video>
     <canvas id="output_canvas" class="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none"></canvas>
 
     <div id="hud-container" class="absolute inset-0 w-full h-full z-20 pointer-events-none">
         
-        <div id="standby_screen" class="absolute inset-0 flex items-center justify-center">
-            <div id="btn_on" class="virtual-button w-48 h-16 bg-cyan-900/30 border-2 border-cyan-400 rounded-lg sci-fi-glow flex items-center justify-center text-xl font-bold pointer-events-auto transition-colors">
-                INITIATE SYSTEM
+        <div id="standby_screen" class="absolute inset-0 flex items-center justify-center pointer-events-auto">
+            <div id="btn_on" class="virtual-interactive w-64 h-20 border-2 border-[#00ff00] hacker-glow flex items-center justify-center text-4xl cursor-pointer hover:bg-green-900/50 transition-colors">
+                > SYSTEM ON _
             </div>
         </div>
 
-        <div id="main_hud" class="hidden absolute inset-0">
-            <div id="virtual_screen" class="absolute w-[350px] h-[250px] bg-cyan-950/40 border-2 rounded-lg sci-fi-glow flex flex-col p-4 text-cyan-200 pointer-events-auto origin-center" style="left: 20%; top: 25%; transform: scaleX(-1) scale(1);">
-                <div class="flex justify-between items-center border-b border-cyan-500 pb-1 mb-2">
-                    <span class="text-[10px]">JARVIS: ONLINE</span>
-                    <span class="text-[10px]">MARK-IV</span>
+        <div id="main_os" class="hidden absolute inset-0 w-full h-full origin-center transition-transform duration-200" style="transform: scaleX(-1) scale(1);">
+            
+            <div class="absolute right-10 top-20 flex flex-col space-y-8 pointer-events-auto">
+                <div id="icon_console" class="virtual-interactive flex flex-col items-center cursor-pointer group">
+                    <div class="w-16 h-12 border-2 border-[#00ff00] flex items-center justify-center text-3xl group-hover:bg-green-900/50">>_</div>
+                    <span class="text-sm mt-1">Program Console</span>
                 </div>
-                <div class="flex-1 flex flex-col items-center justify-center">
-                    <div class="w-16 h-16 rounded-full border-4 border-cyan-400 border-t-transparent animate-spin mb-4"></div>
-                    <p class="text-sm font-bold">SYSTEM RUNNING</p>
+                <div id="icon_network" class="virtual-interactive flex flex-col items-center cursor-pointer group">
+                    <div class="w-16 h-12 border-2 border-[#00ff00] flex items-center justify-center text-3xl group-hover:bg-green-900/50">⑆</div>
+                    <span class="text-sm mt-1">Neural Network</span>
+                </div>
+                <div id="icon_surveillance" class="virtual-interactive flex flex-col items-center cursor-pointer group">
+                    <div class="w-16 h-12 border-2 border-[#00ff00] flex items-center justify-center text-3xl group-hover:bg-green-900/50">◎</div>
+                    <span class="text-sm mt-1">Surveillance</span>
                 </div>
             </div>
 
-            <div id="btn_off" class="virtual-button absolute w-32 h-14 bg-red-900/30 border-2 border-red-400 rounded sci-fi-glow-red flex items-center justify-center text-sm font-bold pointer-events-auto text-red-200" style="left: 75%; top: 40%;">
-                SYSTEM OFF
+            <div id="win_console" class="draggable-window hidden absolute w-96 h-64 hacker-window pointer-events-auto flex flex-col" style="left: 10%; top: 20%;">
+                <div class="hacker-header px-2 py-1 flex justify-between items-center cursor-move window-grab-area">
+                    <span>Program Console</span>
+                    <span class="btn-close virtual-interactive bg-black text-[#00ff00] px-2 cursor-pointer hover:bg-red-500 hover:text-white">X</span>
+                </div>
+                <div class="p-3 text-lg flex-1 overflow-hidden">
+                    <p>penetrate" == typeof</p>
+                    <p class="animate-pulse">_</p>
+                </div>
             </div>
+
+            <div id="win_network" class="draggable-window hidden absolute w-[400px] h-[250px] hacker-window pointer-events-auto flex flex-col" style="left: 30%; top: 40%;">
+                <div class="hacker-header px-2 py-1 flex justify-between items-center cursor-move window-grab-area">
+                    <span>Neural Network Tracing</span>
+                    <span class="btn-close virtual-interactive bg-black text-[#00ff00] px-2 cursor-pointer hover:bg-red-500 hover:text-white">X</span>
+                </div>
+                <div class="flex-1 bg-[radial-gradient(#00ff00_1px,transparent_1px)] [background-size:20px_20px] opacity-50"></div>
+            </div>
+
+            <div id="win_surveillance" class="draggable-window hidden absolute w-[350px] h-[250px] hacker-window pointer-events-auto flex flex-col" style="left: 50%; top: 10%;">
+                <div class="hacker-header px-2 py-1 flex justify-between items-center cursor-move window-grab-area">
+                    <span>Headquarter Surveillance</span>
+                    <span class="btn-close virtual-interactive bg-black text-[#00ff00] px-2 cursor-pointer hover:bg-red-500 hover:text-white">X</span>
+                </div>
+                <div class="flex-1 bg-green-950 flex items-center justify-center text-2xl animate-pulse">
+                    [ VIDEO FEED LOST ]
+                </div>
+            </div>
+
         </div>
 
-        <div id="shutdown_modal" class="hidden absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-auto z-30">
-            <div class="w-80 h-48 bg-gray-900 border-2 border-red-500 rounded-lg sci-fi-glow-red flex flex-col items-center justify-center p-6 text-center shadow-2xl" style="transform: scaleX(-1);">
-                <p class="text-2xl font-bold text-red-400 mb-2">GOODBYE, SIR.</p>
-                <p class="text-xs text-gray-400 mb-6">Shutting down all primary systems...</p>
-                
-                <div id="btn_ok" class="virtual-button w-24 h-10 bg-gray-800 border border-red-400 rounded sci-fi-glow-red flex items-center justify-center text-sm font-bold text-red-200">
-                    OK
-                </div>
-            </div>
-        </div>
-
-        <div class="absolute bottom-6 left-6 w-96 text-xs bg-black/50 p-3 rounded border border-cyan-500/20" style="transform: scaleX(-1);">
-            <div>[SYS] Hand Tracking: <span id="status" class="text-yellow-400">Loading...</span></div>
-            <div id="log_action" class="text-white font-bold mt-1">> Standby Mode</div>
+        <div class="absolute bottom-4 left-4 text-xl" style="transform: scaleX(-1);">
+            > STATUS: <span id="status" class="text-yellow-400">CONNECTING...</span>
+            <div id="log_action" class="text-white">> WAITING FOR INPUT</div>
         </div>
     </div>
 
@@ -89,18 +114,20 @@
         const canvasElement = document.getElementById('output_canvas');
         const canvasCtx = canvasElement.getContext('2d');
         const logAction = document.getElementById('log_action');
-        const statusEl = document.getElementById('status');
-        const virtualScreen = document.getElementById('virtual_screen');
         
-        // UI Sections
         const standbyScreen = document.getElementById('standby_screen');
-        const mainHud = document.getElementById('main_hud');
-        const shutdownModal = document.getElementById('shutdown_modal');
-
-        // States
+        const mainOS = document.getElementById('main_os');
+        
         let isGrabbing = false;
+        let activeWindow = null;
         let grabOffset = { x: 0, y: 0 };
-        let isClickLocked = false; // Prevents multiple clicks from one continuous pinch
+        let isClickLocked = false; 
+        
+        // Zoom functionality
+        let isZooming = false;
+        let initialHandDist = 0;
+        let currentScale = 1;
+        let initialScale = 1;
 
         function resizeCanvas() {
             canvasElement.width = window.innerWidth;
@@ -110,111 +137,139 @@
         resizeCanvas();
 
         function normalizeToScreen(landmark) {
-            return {
-                x: (1 - landmark.x) * window.innerWidth,
-                y: landmark.y * window.innerHeight
-            };
+            return { x: (1 - landmark.x) * window.innerWidth, y: landmark.y * window.innerHeight };
         }
 
         function getPinch(landmarks) {
             const thumbTip = landmarks[4];
             const indexTip = landmarks[8];
-            const dist = Math.sqrt(Math.pow(thumbTip.x - indexTip.x, 2) + Math.pow(thumbTip.y - indexTip.y, 2));
-            return dist < 0.05;
+            return Math.sqrt(Math.pow(thumbTip.x - indexTip.x, 2) + Math.pow(thumbTip.y - indexTip.y, 2)) < 0.05;
         }
 
-        // Handle logical actions for buttons
-        function handleAction(buttonId) {
-            if (buttonId === 'btn_on') {
-                logAction.innerText = "> Systems Activated";
+        // Handle logical clicks (Buttons, Icons, Close buttons)
+        function handleInteraction(element) {
+            if (element.id === 'btn_on') {
                 standbyScreen.classList.add('hidden');
-                mainHud.classList.remove('hidden');
-                mainHud.classList.add('fade-in');
+                mainOS.classList.remove('hidden');
+                logAction.innerText = "> ACCESS GRANTED";
             } 
-            else if (buttonId === 'btn_off') {
-                logAction.innerText = "> Initiating Shutdown...";
-                mainHud.classList.add('hidden');
-                shutdownModal.classList.remove('hidden');
+            else if (element.id === 'icon_console') { document.getElementById('win_console').classList.remove('hidden'); }
+            else if (element.id === 'icon_network') { document.getElementById('win_network').classList.remove('hidden'); }
+            else if (element.id === 'icon_surveillance') { document.getElementById('win_surveillance').classList.remove('hidden'); }
+            else if (element.classList.contains('btn-close')) {
+                // Find parent window and hide it
+                element.closest('.draggable-window').classList.add('hidden');
             }
-            else if (buttonId === 'btn_ok') {
-                logAction.innerText = "> Standby Mode";
-                shutdownModal.classList.add('hidden');
-                standbyScreen.classList.remove('hidden');
+            
+            // Bring interacted window to front if it's an icon click
+            if(element.id && element.id.startsWith('icon_')) {
+                const winId = element.id.replace('icon_', 'win_');
+                const win = document.getElementById(winId);
+                document.querySelectorAll('.draggable-window').forEach(w => w.style.zIndex = "10");
+                if(win) win.style.zIndex = "50";
             }
         }
 
         function onResults(results) {
-            statusEl.innerText = "Active";
-            statusEl.className = "text-green-400";
+            document.getElementById('status').innerText = "ONLINE";
+            document.getElementById('status').className = "text-[#00ff00]";
 
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
             if (results.multiHandLandmarks) {
+                // Draw Hacker style grid/lines for hands
                 for (const landmarks of results.multiHandLandmarks) {
-                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FFCC', lineWidth: 2});
-                    drawLandmarks(canvasCtx, landmarks, {color: '#FF3366', lineWidth: 1, radius: 3});
+                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#004400', lineWidth: 1});
+                    drawLandmarks(canvasCtx, landmarks, {color: '#00ff00', lineWidth: 1, radius: 2});
                 }
 
-                if (results.multiHandLandmarks.length > 0) {
+                // ZOOM LOGIC (Two Hands)
+                if (results.multiHandLandmarks.length >= 2 && !standbyScreen.classList.contains('hidden') === false) {
+                    const hand1 = normalizeToScreen(results.multiHandLandmarks[0][8]);
+                    const hand2 = normalizeToScreen(results.multiHandLandmarks[1][8]);
+                    const currentDist = Math.sqrt(Math.pow(hand1.x - hand2.x, 2) + Math.pow(hand1.y - hand2.y, 2));
+
+                    if (!isZooming) {
+                        isZooming = true;
+                        initialHandDist = currentDist;
+                        initialScale = currentScale;
+                    } else {
+                        let factor = currentDist / initialHandDist;
+                        currentScale = Math.max(0.5, Math.min(initialScale * factor, 2.0));
+                        mainOS.style.transform = `scaleX(-1) scale(${currentScale})`;
+                    }
+                } else {
+                    isZooming = false;
+                }
+
+                // CLICK & DRAG LOGIC (Single Hand)
+                if (results.multiHandLandmarks.length > 0 && !isZooming) {
                     const hand = results.multiHandLandmarks[0];
                     const indexTip = normalizeToScreen(hand[8]);
                     const isPinching = getPinch(hand);
+                    let interactingWithUI = false;
 
-                    // --- 1. BUTTON INTERACTIONS ---
-                    // Select only buttons that are currently visible on screen
-                    const activeButtons = Array.from(document.querySelectorAll('.virtual-button')).filter(btn => {
-                        return btn.closest('.hidden') === null;
-                    });
-
-                    let hoveringButton = false;
-
-                    activeButtons.forEach(btn => {
-                        const rect = btn.getBoundingClientRect();
-                        // Check if index finger is inside button boundaries
+                    // 1. Check Clicks (Icons, Buttons, Close marks)
+                    const interactables = Array.from(document.querySelectorAll('.virtual-interactive')).filter(el => el.closest('.hidden') === null);
+                    
+                    interactables.forEach(el => {
+                        // Account for scaling when calculating bounding rects for precise clicks
+                        const rect = el.getBoundingClientRect(); 
                         if (indexTip.x > rect.left && indexTip.x < rect.right && indexTip.y > rect.top && indexTip.y < rect.bottom) {
-                            hoveringButton = true;
-                            
+                            interactingWithUI = true;
                             if (isPinching) {
-                                btn.classList.add('pinch-active');
+                                el.classList.add('hacker-glow');
                                 if (!isClickLocked) {
-                                    isClickLocked = true; // Lock the click
-                                    handleAction(btn.id);
+                                    isClickLocked = true;
+                                    handleInteraction(el);
                                 }
                             } else {
-                                btn.classList.remove('pinch-active');
-                                btn.style.backgroundColor = "rgba(0, 255, 255, 0.2)"; // Hover state
+                                el.classList.remove('hacker-glow');
                             }
-                        } else {
-                            btn.classList.remove('pinch-active');
-                            btn.style.backgroundColor = "";
                         }
                     });
 
-                    // Unlock click mechanism when pinch is released
-                    if (!isPinching) {
-                        isClickLocked = false;
-                    }
+                    if (!isPinching) isClickLocked = false;
 
-                    // --- 2. DRAGGABLE SCREEN (Only if Main HUD is active) ---
-                    if (!mainHud.classList.contains('hidden') && !hoveringButton) {
-                        const screenRect = virtualScreen.getBoundingClientRect();
-                        const overScreen = indexTip.x > screenRect.left && indexTip.x < screenRect.right && indexTip.y > screenRect.top && indexTip.y < screenRect.bottom;
+                    // 2. Window Dragging (Only via Header area)
+                    if (!interactingWithUI && !mainOS.classList.contains('hidden')) {
+                        if (isPinching && !activeWindow) {
+                            const headers = document.querySelectorAll('.window-grab-area');
+                            headers.forEach(header => {
+                                // Skip hidden windows
+                                if (header.closest('.hidden')) return; 
+                                
+                                const rect = header.getBoundingClientRect();
+                                if (indexTip.x > rect.left && indexTip.x < rect.right && indexTip.y > rect.top && indexTip.y < rect.bottom) {
+                                    activeWindow = header.closest('.draggable-window');
+                                    
+                                    // Bring to front
+                                    document.querySelectorAll('.draggable-window').forEach(w => w.style.zIndex = "10");
+                                    activeWindow.style.zIndex = "50";
+                                    activeWindow.classList.add('pinch-active');
 
-                        if (overScreen && isPinching && !isGrabbing) {
-                            isGrabbing = true;
-                            virtualScreen.classList.add('pinch-active');
-                            grabOffset.x = indexTip.x - screenRect.left;
-                            grabOffset.y = indexTip.y - screenRect.top;
+                                    // Offset calculation (adjust for scale)
+                                    const windowRect = activeWindow.getBoundingClientRect();
+                                    grabOffset.x = (indexTip.x - windowRect.left) / currentScale;
+                                    grabOffset.y = (indexTip.y - windowRect.top) / currentScale;
+                                }
+                            });
                         }
 
-                        if (isGrabbing) {
+                        if (activeWindow) {
                             if (isPinching) {
-                                virtualScreen.style.left = `${indexTip.x - grabOffset.x}px`;
-                                virtualScreen.style.top = `${indexTip.y - grabOffset.y}px`;
+                                // Calculate new positions based on parent scaling
+                                const newLeft = (indexTip.x / currentScale) - grabOffset.x;
+                                const newTop = (indexTip.y / currentScale) - grabOffset.y;
+                                
+                                // In a mirror flipped container (scaleX(-1)), left calculation is slightly complex, 
+                                // but setting absolute pixels usually overrides seamlessly on the scaled container.
+                                activeWindow.style.left = `${newLeft}px`;
+                                activeWindow.style.top = `${newTop}px`;
                             } else {
-                                isGrabbing = false;
-                                virtualScreen.classList.remove('pinch-active');
+                                activeWindow.classList.remove('pinch-active');
+                                activeWindow = null;
                             }
                         }
                     }
@@ -224,19 +279,10 @@
         }
 
         const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-        hands.setOptions({
-            maxNumHands: 2,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.7,
-            minTrackingConfidence: 0.7
-        });
+        hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
         hands.onResults(onResults);
 
-        const camera = new Camera(videoElement, {
-            onFrame: async () => { await hands.send({image: videoElement}); },
-            width: 1280,
-            height: 720
-        });
+        const camera = new Camera(videoElement, { onFrame: async () => { await hands.send({image: videoElement}); }, width: 1280, height: 720 });
         camera.start();
     </script>
 </body>
