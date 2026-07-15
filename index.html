@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iron Man Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- MediaPipe Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body class="bg-black overflow-hidden flex items-center justify-center h-screen">
+
+    <!-- Camera Video (Hidden normally, but we use it for tracking) -->
+    <video id="input_video" class="hidden"></video>
+    
+    <!-- Canvas to draw the hand points and interface -->
+    <canvas id="output_canvas" class="absolute w-full h-full object-cover opacity-80"></canvas>
+
+    <!-- Draggable Virtual Object -->
+    <div id="virtual_screen" class="absolute w-64 h-48 bg-blue-500/30 border-2 border-blue-400 rounded-lg shadow-[0_0_20px_rgba(59,130,246,0.5)] flex items-center justify-center text-blue-200 font-mono text-xl backdrop-blur-sm transition-transform">
+        System Active
+    </div>
+
+    <script>
+        const videoElement = document.getElementById('input_video');
+        const canvasElement = document.getElementById('output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const virtualScreen = document.getElementById('virtual_screen');
+
+        function onResults(results) {
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                for (const landmarks of results.multiHandLandmarks) {
+                    // Draw Hand
+                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 2});
+                    drawLandmarks(canvasCtx, landmarks, {color: '#FF0000', lineWidth: 1});
+
+                    // Get Index Finger (8) and Thumb (4) points
+                    const thumbTip = landmarks[4];
+                    const indexTip = landmarks[8];
+
+                    // Simple logic to detect "Pinch" (Grab)
+                    const distance = Math.sqrt(
+                        Math.pow(thumbTip.x - indexTip.x, 2) + 
+                        Math.pow(thumbTip.y - indexTip.y, 2)
+                    );
+
+                    // If pinched (distance is small), move the virtual screen to the hand's location
+                    if (distance < 0.05) {
+                        virtualScreen.style.left = `${indexTip.x * window.innerWidth}px`;
+                        virtualScreen.style.top = `${indexTip.y * window.innerHeight}px`;
+                        virtualScreen.style.borderColor = "#ff0000"; // Change color when grabbed
+                    } else {
+                        virtualScreen.style.borderColor = "#60a5fa"; // Normal color
+                    }
+                }
+            }
+            canvasCtx.restore();
+        }
+
+        const hands = new Hands({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        }});
+        
+        hands.setOptions({
+            maxNumHands: 2,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7
+        });
+        hands.onResults(onResults);
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({image: videoElement});
+            },
+            width: 1280,
+            height: 720
+        });
+        camera.start();
+    </script>
+</body>
+</html>
