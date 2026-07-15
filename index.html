@@ -3,109 +3,144 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hacker OS Interface</title>
+    <title>Stark HUD Mark IV - OS Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
     <style>
-        /* Hacker Theme Colors & Fonts */
-        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
         
-        body { font-family: 'VT323', monospace; text-transform: uppercase; }
+        body { font-family: 'Orbitron', sans-serif; }
         
-        #input_video, #output_canvas, #hud-container { transform: scaleX(-1); }
-        #hud-container > * { transform: scaleX(-1); }
-
-        .hacker-glow {
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-            text-shadow: 0 0 5px rgba(0, 255, 0, 0.8);
-        }
-        
-        .hacker-window {
-            background: rgba(0, 10, 0, 0.85);
-            border: 2px solid #00ff00;
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+        /* Mirror background camera and canvas only */
+        #input_video, #output_canvas {
+            transform: scaleX(-1);
         }
 
-        .hacker-header {
-            background: #00ff00;
-            color: black;
-            font-weight: bold;
+        .iron-glow {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.5);
+            border-color: rgba(6, 182, 212, 0.8);
+        }
+        
+        .iron-panel {
+            background: rgba(8, 47, 73, 0.25);
+            backdrop-filter: blur(6px);
+            border: 1.5px solid rgba(6, 182, 212, 0.6);
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);
         }
 
         .pinch-active {
-            box-shadow: 0 0 30px rgba(0, 255, 0, 1) !important;
-            border-color: #fff !important;
-            background-color: rgba(0, 50, 0, 0.9) !important;
+            border-color: rgba(239, 68, 68, 1) !important; /* Red glow on select */
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.7) !important;
         }
+
+        /* Arc Reactor Animation */
+        .reactor-core {
+            border: 4px dashed rgba(6, 182, 212, 0.8);
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.6);
+            animation: spin 8s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="bg-black overflow-hidden flex items-center justify-center h-screen text-[#00ff00] select-none">
+<body class="bg-black overflow-hidden h-screen text-cyan-400 select-none">
 
-    <video id="input_video" class="absolute inset-0 w-full h-full object-cover opacity-30"></video>
+    <video id="input_video" class="absolute inset-0 w-full h-full object-cover opacity-40"></video>
     <canvas id="output_canvas" class="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none"></canvas>
 
     <div id="hud-container" class="absolute inset-0 w-full h-full z-20 pointer-events-none">
         
-        <div id="standby_screen" class="absolute inset-0 flex items-center justify-center pointer-events-auto">
-            <div id="btn_on" class="virtual-interactive w-64 h-20 border-2 border-[#00ff00] hacker-glow flex items-center justify-center text-4xl cursor-pointer hover:bg-green-900/50 transition-colors">
-                > SYSTEM ON _
+        <div id="standby_screen" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-auto">
+            <div id="btn_on" class="virtual-interactive w-64 h-20 border-2 rounded-xl iron-glow flex flex-col items-center justify-center cursor-pointer bg-cyan-950/20 hover:bg-cyan-900/40 transition-all">
+                <span class="text-2xl font-bold tracking-widest">INITIATE</span>
+                <span class="text-xs text-cyan-500 font-sans mt-1">J.A.R.V.I.S. PROTOCOL</span>
             </div>
         </div>
 
-        <div id="main_os" class="hidden absolute inset-0 w-full h-full origin-center transition-transform duration-200" style="transform: scaleX(-1) scale(1);">
+        <div id="main_os" class="hidden absolute inset-0 w-full h-full">
             
-            <div class="absolute right-10 top-20 flex flex-col space-y-8 pointer-events-auto">
-                <div id="icon_console" class="virtual-interactive flex flex-col items-center cursor-pointer group">
-                    <div class="w-16 h-12 border-2 border-[#00ff00] flex items-center justify-center text-3xl group-hover:bg-green-900/50">>_</div>
-                    <span class="text-sm mt-1">Program Console</span>
+            <div class="absolute right-8 top-24 flex flex-col space-y-6 pointer-events-auto">
+                <div id="icon_core" class="virtual-interactive flex flex-col items-center cursor-pointer group bg-cyan-950/30 p-3 rounded-lg border border-cyan-500/30 w-24 iron-glow">
+                    <div class="text-3xl mb-1 text-cyan-300 group-hover:scale-110 transition-transform">☢</div>
+                    <span class="text-[10px] text-center font-bold">CORE</span>
                 </div>
-                <div id="icon_network" class="virtual-interactive flex flex-col items-center cursor-pointer group">
-                    <div class="w-16 h-12 border-2 border-[#00ff00] flex items-center justify-center text-3xl group-hover:bg-green-900/50">⑆</div>
-                    <span class="text-sm mt-1">Neural Network</span>
+                <div id="icon_tactical" class="virtual-interactive flex flex-col items-center cursor-pointer group bg-cyan-950/30 p-3 rounded-lg border border-cyan-500/30 w-24 iron-glow">
+                    <div class="text-3xl mb-1 text-cyan-300 group-hover:scale-110 transition-transform">🎯</div>
+                    <span class="text-[10px] text-center font-bold">TACTICAL</span>
                 </div>
-                <div id="icon_surveillance" class="virtual-interactive flex flex-col items-center cursor-pointer group">
-                    <div class="w-16 h-12 border-2 border-[#00ff00] flex items-center justify-center text-3xl group-hover:bg-green-900/50">◎</div>
-                    <span class="text-sm mt-1">Surveillance</span>
+                <div id="icon_logs" class="virtual-interactive flex flex-col items-center cursor-pointer group bg-cyan-950/30 p-3 rounded-lg border border-cyan-500/30 w-24 iron-glow">
+                    <div class="text-3xl mb-1 text-cyan-300 group-hover:scale-110 transition-transform">📊</div>
+                    <span class="text-[10px] text-center font-bold">DIAGS</span>
                 </div>
-            </div>
-
-            <div id="win_console" class="draggable-window hidden absolute w-96 h-64 hacker-window pointer-events-auto flex flex-col" style="left: 10%; top: 20%;">
-                <div class="hacker-header px-2 py-1 flex justify-between items-center cursor-move window-grab-area">
-                    <span>Program Console</span>
-                    <span class="btn-close virtual-interactive bg-black text-[#00ff00] px-2 cursor-pointer hover:bg-red-500 hover:text-white">X</span>
-                </div>
-                <div class="p-3 text-lg flex-1 overflow-hidden">
-                    <p>penetrate" == typeof</p>
-                    <p class="animate-pulse">_</p>
+                <div id="btn_off" class="virtual-interactive flex flex-col items-center cursor-pointer bg-red-950/30 p-3 rounded-lg border border-red-500/50 w-24 shadow-[0_0_10px_rgba(239,68,68,0.3)]">
+                    <div class="text-xl font-bold text-red-400">POWER</div>
+                    <span class="text-[9px] text-red-500 font-bold">DOWN</span>
                 </div>
             </div>
 
-            <div id="win_network" class="draggable-window hidden absolute w-[400px] h-[250px] hacker-window pointer-events-auto flex flex-col" style="left: 30%; top: 40%;">
-                <div class="hacker-header px-2 py-1 flex justify-between items-center cursor-move window-grab-area">
-                    <span>Neural Network Tracing</span>
-                    <span class="btn-close virtual-interactive bg-black text-[#00ff00] px-2 cursor-pointer hover:bg-red-500 hover:text-white">X</span>
+            <div id="win_core" class="draggable-window hidden absolute w-[360px] h-[240px] iron-panel rounded-lg pointer-events-auto flex flex-col" style="left: 15%; top: 15%;">
+                <div class="window-header bg-cyan-500/20 px-3 py-2 flex justify-between items-center border-b border-cyan-500/40 cursor-move">
+                    <span class="text-xs font-bold tracking-wider">// ARC REACTOR STATUS</span>
+                    <span class="btn-close virtual-interactive text-red-400 font-bold px-2 cursor-pointer border border-red-500/30 rounded bg-red-950/20 hover:bg-red-500 hover:text-white">X</span>
                 </div>
-                <div class="flex-1 bg-[radial-gradient(#00ff00_1px,transparent_1px)] [background-size:20px_20px] opacity-50"></div>
+                <div class="p-4 flex items-center justify-around flex-1">
+                    <div class="w-20 h-20 rounded-full reactor-core flex items-center justify-center">
+                        <div class="w-12 h-12 rounded-full bg-cyan-400/30 border-2 border-cyan-400 animate-pulse"></div>
+                    </div>
+                    <div class="text-xs space-y-1">
+                        <div>OUTPUT: <span class="text-green-400 font-bold">3 GIGAWATTS</span></div>
+                        <div>STABILITY: <span class="text-cyan-300 font-bold">99.98%</span></div>
+                        <div class="text-[10px] text-gray-400 mt-2">Pinch top bar to drag</div>
+                    </div>
+                </div>
             </div>
 
-            <div id="win_surveillance" class="draggable-window hidden absolute w-[350px] h-[250px] hacker-window pointer-events-auto flex flex-col" style="left: 50%; top: 10%;">
-                <div class="hacker-header px-2 py-1 flex justify-between items-center cursor-move window-grab-area">
-                    <span>Headquarter Surveillance</span>
-                    <span class="btn-close virtual-interactive bg-black text-[#00ff00] px-2 cursor-pointer hover:bg-red-500 hover:text-white">X</span>
+            <div id="win_tactical" class="draggable-window hidden absolute w-[380px] h-[260px] iron-panel rounded-lg pointer-events-auto flex flex-col" style="left: 25%; top: 40%;">
+                <div class="window-header bg-cyan-500/20 px-3 py-2 flex justify-between items-center border-b border-cyan-500/40 cursor-move">
+                    <span class="text-xs font-bold tracking-wider">// TACTICAL TARGETING</span>
+                    <span class="btn-close virtual-interactive text-red-400 font-bold px-2 cursor-pointer border border-red-500/30 rounded bg-red-950/20 hover:bg-red-500 hover:text-white">X</span>
                 </div>
-                <div class="flex-1 bg-green-950 flex items-center justify-center text-2xl animate-pulse">
-                    [ VIDEO FEED LOST ]
+                <div class="p-4 flex-1 flex flex-col justify-between">
+                    <div class="border border-cyan-500/30 h-28 rounded bg-cyan-950/20 relative flex items-center justify-center">
+                        <div class="absolute w-12 h-12 border-2 border-dashed border-red-500 rounded-full animate-ping"></div>
+                        <span class="text-xs text-red-400 font-bold tracking-widest animate-pulse">LOCKING TARGET</span>
+                    </div>
+                    <div class="flex justify-between text-[11px]">
+                        <div>RANGE: <span class="text-yellow-400">1,240M</span></div>
+                        <div>WEAPONS: <span class="text-green-400">READY</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="win_logs" class="draggable-window hidden absolute w-[400px] h-[220px] iron-panel rounded-lg pointer-events-auto flex flex-col" style="left: 40%; top: 20%;">
+                <div class="window-header bg-cyan-500/20 px-3 py-2 flex justify-between items-center border-b border-cyan-500/40 cursor-move">
+                    <span class="text-xs font-bold tracking-wider">// SYSTEM DIAGNOSTICS</span>
+                    <span class="btn-close virtual-interactive text-red-400 font-bold px-2 cursor-pointer border border-red-500/30 rounded bg-red-950/20 hover:bg-red-500 hover:text-white">X</span>
+                </div>
+                <div class="p-3 text-[11px] space-y-1 flex-1 font-mono text-cyan-300">
+                    <div>> J.A.R.V.I.S. Core Framework V4.0.1</div>
+                    <div>> Holographic Sandbox Interface Link: OK</div>
+                    <div id="live_log" class="text-white font-bold animate-pulse">> Ready for Gesture Inputs...</div>
                 </div>
             </div>
 
         </div>
 
-        <div class="absolute bottom-4 left-4 text-xl" style="transform: scaleX(-1);">
-            > STATUS: <span id="status" class="text-yellow-400">CONNECTING...</span>
-            <div id="log_action" class="text-white">> WAITING FOR INPUT</div>
+        <div id="shutdown_modal" class="hidden absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-md pointer-events-auto z-50">
+            <div class="w-80 h-48 bg-slate-900 border-2 border-red-500 rounded-xl p-6 text-center shadow-[0_0_30px_rgba(239,68,68,0.5)] flex flex-col items-center justify-center">
+                <p class="text-xl font-bold text-red-400 mb-1">GOODBYE, SIR.</p>
+                <p class="text-[10px] text-gray-400 mb-6">All systems powering down.</p>
+                
+                <div id="btn_ok" class="virtual-interactive w-24 h-10 bg-red-950/50 border border-red-500 rounded-lg flex items-center justify-center text-sm font-bold text-red-300 cursor-pointer shadow-[0_0_10px_rgba(239,68,68,0.2)]">
+                    OK
+                </div>
+            </div>
+        </div>
+
+        <div class="absolute bottom-6 left-6 text-xs bg-slate-950/80 p-3 rounded-lg border border-cyan-500/30 iron-glow">
+            SYS STATUS: <span id="status" class="text-yellow-400 font-bold">CONNECTING</span>
         </div>
     </div>
 
@@ -113,21 +148,15 @@
         const videoElement = document.getElementById('input_video');
         const canvasElement = document.getElementById('output_canvas');
         const canvasCtx = canvasElement.getContext('2d');
-        const logAction = document.getElementById('log_action');
         
         const standbyScreen = document.getElementById('standby_screen');
         const mainOS = document.getElementById('main_os');
-        
-        let isGrabbing = false;
+        const shutdownModal = document.getElementById('shutdown_modal');
+        const liveLog = document.getElementById('live_log');
+
         let activeWindow = null;
         let grabOffset = { x: 0, y: 0 };
-        let isClickLocked = false; 
-        
-        // Zoom functionality
-        let isZooming = false;
-        let initialHandDist = 0;
-        let currentScale = 1;
-        let initialScale = 1;
+        let isClickLocked = false;
 
         function resizeCanvas() {
             canvasElement.width = window.innerWidth;
@@ -136,139 +165,129 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
+        // 💡 මකපු සුපිරි logic එක: කැමරාව flip උනාට HTML එක flip වෙන්නේ නෑ. 
+        // ඒ නිසා coordinates මෙතනින් විතරක් reverse කලාම drag and drop 100% හරියට වැඩ කරනවා.
         function normalizeToScreen(landmark) {
-            return { x: (1 - landmark.x) * window.innerWidth, y: landmark.y * window.innerHeight };
+            return { 
+                x: (1 - landmark.x) * window.innerWidth, 
+                y: landmark.y * window.innerHeight 
+            };
         }
 
         function getPinch(landmarks) {
             const thumbTip = landmarks[4];
             const indexTip = landmarks[8];
-            return Math.sqrt(Math.pow(thumbTip.x - indexTip.x, 2) + Math.pow(thumbTip.y - indexTip.y, 2)) < 0.05;
+            return Math.sqrt(Math.pow(thumbTip.x - indexTip.x, 2) + Math.pow(thumbTip.y - indexTip.y, 2)) < 0.045;
         }
 
-        // Handle logical clicks (Buttons, Icons, Close buttons)
+        // Folder & System Actions
         function handleInteraction(element) {
             if (element.id === 'btn_on') {
                 standbyScreen.classList.add('hidden');
                 mainOS.classList.remove('hidden');
-                logAction.innerText = "> ACCESS GRANTED";
+                liveLog.innerText = "> JARVIS: Systems fully operational.";
             } 
-            else if (element.id === 'icon_console') { document.getElementById('win_console').classList.remove('hidden'); }
-            else if (element.id === 'icon_network') { document.getElementById('win_network').classList.remove('hidden'); }
-            else if (element.id === 'icon_surveillance') { document.getElementById('win_surveillance').classList.remove('hidden'); }
+            else if (element.id === 'icon_core') { document.getElementById('win_core').classList.remove('hidden'); }
+            else if (element.id === 'icon_tactical') { document.getElementById('win_tactical').classList.remove('hidden'); }
+            else if (element.id === 'icon_logs') { document.getElementById('win_logs').classList.remove('hidden'); }
+            else if (element.id === 'btn_off') {
+                mainOS.classList.add('hidden');
+                shutdownModal.classList.remove('hidden');
+            }
+            else if (element.id === 'btn_ok') {
+                shutdownModal.classList.add('hidden');
+                standbyScreen.classList.remove('hidden');
+            }
             else if (element.classList.contains('btn-close')) {
-                // Find parent window and hide it
                 element.closest('.draggable-window').classList.add('hidden');
             }
-            
-            // Bring interacted window to front if it's an icon click
+
+            // Bring to Front Focus
             if(element.id && element.id.startsWith('icon_')) {
-                const winId = element.id.replace('icon_', 'win_');
-                const win = document.getElementById(winId);
-                document.querySelectorAll('.draggable-window').forEach(w => w.style.zIndex = "10");
-                if(win) win.style.zIndex = "50";
+                const targetWin = document.getElementById(element.id.replace('icon_', 'win_'));
+                focusWindow(targetWin);
             }
+        }
+
+        function focusWindow(win) {
+            if (!win) return;
+            document.querySelectorAll('.draggable-window').forEach(w => w.style.zIndex = "30");
+            win.style.zIndex = "40";
         }
 
         function onResults(results) {
             document.getElementById('status').innerText = "ONLINE";
-            document.getElementById('status').className = "text-[#00ff00]";
+            document.getElementById('status').className = "text-green-400 font-bold";
 
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
             if (results.multiHandLandmarks) {
-                // Draw Hacker style grid/lines for hands
+                // Draw Futuristic Cyan lines for hands
                 for (const landmarks of results.multiHandLandmarks) {
-                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#004400', lineWidth: 1});
-                    drawLandmarks(canvasCtx, landmarks, {color: '#00ff00', lineWidth: 1, radius: 2});
+                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#06b6d4', lineWidth: 1.5});
+                    drawLandmarks(canvasCtx, landmarks, {color: '#ef4444', lineWidth: 1, radius: 3});
                 }
 
-                // ZOOM LOGIC (Two Hands)
-                if (results.multiHandLandmarks.length >= 2 && !standbyScreen.classList.contains('hidden') === false) {
-                    const hand1 = normalizeToScreen(results.multiHandLandmarks[0][8]);
-                    const hand2 = normalizeToScreen(results.multiHandLandmarks[1][8]);
-                    const currentDist = Math.sqrt(Math.pow(hand1.x - hand2.x, 2) + Math.pow(hand1.y - hand2.y, 2));
-
-                    if (!isZooming) {
-                        isZooming = true;
-                        initialHandDist = currentDist;
-                        initialScale = currentScale;
-                    } else {
-                        let factor = currentDist / initialHandDist;
-                        currentScale = Math.max(0.5, Math.min(initialScale * factor, 2.0));
-                        mainOS.style.transform = `scaleX(-1) scale(${currentScale})`;
-                    }
-                } else {
-                    isZooming = false;
-                }
-
-                // CLICK & DRAG LOGIC (Single Hand)
-                if (results.multiHandLandmarks.length > 0 && !isZooming) {
+                if (results.multiHandLandmarks.length > 0) {
                     const hand = results.multiHandLandmarks[0];
                     const indexTip = normalizeToScreen(hand[8]);
                     const isPinching = getPinch(hand);
                     let interactingWithUI = false;
 
-                    // 1. Check Clicks (Icons, Buttons, Close marks)
+                    // 1. CLICK LOGIC (Icons, Buttons, Close marks)
                     const interactables = Array.from(document.querySelectorAll('.virtual-interactive')).filter(el => el.closest('.hidden') === null);
                     
                     interactables.forEach(el => {
-                        // Account for scaling when calculating bounding rects for precise clicks
                         const rect = el.getBoundingClientRect(); 
                         if (indexTip.x > rect.left && indexTip.x < rect.right && indexTip.y > rect.top && indexTip.y < rect.bottom) {
                             interactingWithUI = true;
                             if (isPinching) {
-                                el.classList.add('hacker-glow');
+                                el.classList.add('pinch-active');
                                 if (!isClickLocked) {
                                     isClickLocked = true;
                                     handleInteraction(el);
                                 }
                             } else {
-                                el.classList.remove('hacker-glow');
+                                el.classList.remove('pinch-active');
+                                el.style.backgroundColor = "rgba(6, 182, 212, 0.3)";
                             }
+                        } else {
+                            if(!el.classList.contains('btn-close') && el.id !== 'btn_off') el.style.backgroundColor = "";
                         }
                     });
 
                     if (!isPinching) isClickLocked = false;
 
-                    // 2. Window Dragging (Only via Header area)
+                    // 2. SMOOTH WINDOW DRAG & DROP LOGIC (Via Header Top Bar)
                     if (!interactingWithUI && !mainOS.classList.contains('hidden')) {
                         if (isPinching && !activeWindow) {
-                            const headers = document.querySelectorAll('.window-grab-area');
+                            const headers = document.querySelectorAll('.window-header');
                             headers.forEach(header => {
-                                // Skip hidden windows
-                                if (header.closest('.hidden')) return; 
+                                if (header.closest('.hidden')) return; // Ignore if closed
                                 
                                 const rect = header.getBoundingClientRect();
                                 if (indexTip.x > rect.left && indexTip.x < rect.right && indexTip.y > rect.top && indexTip.y < rect.bottom) {
                                     activeWindow = header.closest('.draggable-window');
-                                    
-                                    // Bring to front
-                                    document.querySelectorAll('.draggable-window').forEach(w => w.style.zIndex = "10");
-                                    activeWindow.style.zIndex = "50";
+                                    focusWindow(activeWindow);
                                     activeWindow.classList.add('pinch-active');
 
-                                    // Offset calculation (adjust for scale)
                                     const windowRect = activeWindow.getBoundingClientRect();
-                                    grabOffset.x = (indexTip.x - windowRect.left) / currentScale;
-                                    grabOffset.y = (indexTip.y - windowRect.top) / currentScale;
+                                    grabOffset.x = indexTip.x - windowRect.left;
+                                    grabOffset.y = indexTip.y - windowRect.top;
                                 }
                             });
                         }
 
                         if (activeWindow) {
                             if (isPinching) {
-                                // Calculate new positions based on parent scaling
-                                const newLeft = (indexTip.x / currentScale) - grabOffset.x;
-                                const newTop = (indexTip.y / currentScale) - grabOffset.y;
-                                
-                                // In a mirror flipped container (scaleX(-1)), left calculation is slightly complex, 
-                                // but setting absolute pixels usually overrides seamlessly on the scaled container.
-                                activeWindow.style.left = `${newLeft}px`;
-                                activeWindow.style.top = `${newTop}px`;
+                                // Update position smoothly
+                                activeWindow.style.left = `${indexTip.x - grabOffset.x}px`;
+                                activeWindow.style.top = `${indexTip.y - grabOffset.y}px`;
+                                liveLog.innerText = `> Moving Module: ${activeWindow.id.replace('win_','').toUpperCase()}`;
                             } else {
                                 activeWindow.classList.remove('pinch-active');
+                                liveLog.innerText = `> Module Position Locked.`;
                                 activeWindow = null;
                             }
                         }
@@ -279,7 +298,7 @@
         }
 
         const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-        hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+        hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.75, minTrackingConfidence: 0.75 });
         hands.onResults(onResults);
 
         const camera = new Camera(videoElement, { onFrame: async () => { await hands.send({image: videoElement}); }, width: 1280, height: 720 });
