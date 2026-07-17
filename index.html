@@ -3,148 +3,755 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stark HUD V5 - Voice & Mobile Fix</title>
+    <title>J.A.R.V.I.S. Holographic Interface v6.0</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- MediaPipe SDKs -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
-        
-        body { font-family: 'Orbitron', sans-serif; }
-        
-        /* FIX FOR MOBILE: Using 'fill' forces exact coordinate mapping without offsets */
-        #input_video, #output_canvas {
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: #020617;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.08) 0%, transparent 70%),
+                linear-gradient(rgba(6, 182, 212, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(6, 182, 212, 0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 30px 30px, 30px 30px;
+        }
+
+        /* Scanline CRT overlay */
+        .scanlines {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.25) 50%
+            ), linear-gradient(
+                90deg, 
+                rgba(255, 0, 0, 0.03), 
+                rgba(0, 255, 0, 0.01), 
+                rgba(0, 0, 255, 0.03)
+            );
+            background-size: 100% 4px, 6px 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        #input_video {
             transform: scaleX(-1);
-            object-fit: fill; 
+            object-fit: cover;
         }
 
-        .iron-glow {
-            box-shadow: 0 0 15px rgba(6, 182, 212, 0.5);
-            border-color: rgba(6, 182, 212, 0.8);
-        }
-        
-        .iron-panel {
-            background: rgba(8, 47, 73, 0.4);
-            backdrop-filter: blur(8px);
-            border: 1.5px solid rgba(6, 182, 212, 0.6);
-            box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);
+        /* Glassmorphism holographic panel */
+        .hologram-panel {
+            background: rgba(8, 47, 73, 0.25);
+            backdrop-filter: blur(12px);
+            border: 1.5px solid rgba(6, 182, 212, 0.4);
+            box-shadow: 
+                0 0 25px rgba(6, 182, 212, 0.15),
+                inset 0 0 15px rgba(6, 182, 212, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        .hologram-panel:hover {
+            border-color: rgba(6, 182, 212, 0.7);
+            box-shadow: 
+                0 0 35px rgba(6, 182, 212, 0.3),
+                inset 0 0 20px rgba(6, 182, 212, 0.15);
+        }
+
+        /* Futuristic glow */
+        .neon-glow {
+            text-shadow: 0 0 8px rgba(6, 182, 212, 0.6);
+        }
+
+        .neon-border {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+        }
+
+        /* Red alert theme overrides */
+        .red-alert-active {
+            background-color: #0c0202;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(239, 68, 68, 0.1) 0%, transparent 70%),
+                linear-gradient(rgba(239, 68, 68, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(239, 68, 68, 0.03) 1px, transparent 1px);
+            animation: red-pulse-bg 2.5s infinite alternate;
+        }
+
+        .red-alert-active .hologram-panel {
+            background: rgba(127, 29, 29, 0.25);
+            border-color: rgba(239, 68, 68, 0.5);
+            box-shadow: 
+                0 0 25px rgba(239, 68, 68, 0.2),
+                inset 0 0 15px rgba(239, 68, 68, 0.1);
+        }
+
+        .red-alert-active .hologram-panel:hover {
+            border-color: rgba(239, 68, 68, 0.8);
+            box-shadow: 
+                0 0 35px rgba(239, 68, 68, 0.35),
+                inset 0 0 20px rgba(239, 68, 68, 0.2);
+        }
+
+        .red-alert-active .text-cyan-400 { color: #f87171 !important; }
+        .red-alert-active .border-cyan-500\/50 { border-color: rgba(239, 68, 68, 0.5) !important; }
+        .red-alert-active .bg-cyan-950\/40 { background-color: rgba(127, 29, 29, 0.4) !important; }
+        .red-alert-active .bg-cyan-950\/50 { background-color: rgba(127, 29, 29, 0.5) !important; }
+        .red-alert-active .bg-cyan-900\/60 { background-color: rgba(153, 27, 27, 0.6) !important; }
+        .red-alert-active .neon-glow { text-shadow: 0 0 8px rgba(239, 68, 68, 0.7); }
+        .red-alert-active .neon-border { box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); }
+
+        @keyframes red-pulse-bg {
+            0% { background-color: #080000; }
+            100% { background-color: #240505; }
+        }
+
+        /* Pinch gesture indicator */
         .pinch-active {
-            border-color: rgba(239, 68, 68, 1) !important;
-            box-shadow: 0 0 25px rgba(239, 68, 68, 0.7) !important;
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 30px rgba(239, 68, 68, 0.8) !important;
+            transform: scale(0.98);
         }
 
-        .reactor-core {
-            border: 4px dashed rgba(6, 182, 212, 0.8);
-            box-shadow: 0 0 20px rgba(6, 182, 212, 0.6);
-            animation: spin 8s linear infinite;
+        /* Rotating HUD indicators */
+        .rotating-hud {
+            animation: spin 12s linear infinite;
         }
+        .rotating-hud-reverse {
+            animation: spin-reverse 8s linear infinite;
+        }
+
         @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes spin-reverse { 100% { transform: rotate(-360deg); } }
+
+        /* Custom scrollbar for logs */
+        .custom-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(6, 182, 212, 0.05);
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(6, 182, 212, 0.4);
+            border-radius: 2px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(6, 182, 212, 0.7);
+        }
+
+        /* Glowing wireframe path transition */
+        .suit-part {
+            transition: all 0.2s ease;
+            stroke-width: 1.5;
+            fill: transparent;
+        }
+        .suit-part:hover {
+            fill: rgba(6, 182, 212, 0.2);
+            stroke-width: 2.5;
+            filter: drop-shadow(0 0 4px rgba(6, 182, 212, 0.8));
+        }
+        .red-alert-active .suit-part:hover {
+            fill: rgba(239, 68, 68, 0.2);
+            filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.8));
+        }
+
+        /* Radar scan rotation */
+        .radar-scan-line {
+            transform-origin: 100px 100px;
+            animation: radar-sweep 4s linear infinite;
+        }
+        @keyframes radar-sweep {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
-<body class="bg-black overflow-hidden h-screen text-cyan-400 select-none">
+<body class="overflow-hidden h-screen text-cyan-400 select-none relative transition-colors duration-1000">
 
-    <video id="input_video" class="absolute inset-0 w-full h-full opacity-40"></video>
+    <div class="scanlines"></div>
+
+    <!-- Background feed (highly transparent for holograph style) -->
+    <video id="input_video" class="absolute inset-0 w-full h-full opacity-20 object-cover transform scale-x-[-1]"></video>
     <canvas id="output_canvas" class="absolute inset-0 w-full h-full z-10 pointer-events-none"></canvas>
 
-    <div id="unlock_screen" class="absolute inset-0 z-[100] bg-black flex flex-col items-center justify-center cursor-pointer pointer-events-auto" onclick="unlockAudio()">
-        <div class="text-2xl text-cyan-400 font-bold animate-pulse border-2 border-cyan-400 p-6 rounded-xl iron-glow">
-            TAP SCREEN ONCE TO ENABLE J.A.R.V.I.S AUDIO
+    <!-- Pulsing glow border overlay -->
+    <div id="hud-pulse-border" class="absolute inset-0 border border-transparent pointer-events-none transition-all duration-500 z-30"></div>
+
+    <!-- Unlock Overlay Screen -->
+    <div id="unlock_screen" class="absolute inset-0 z-[100] bg-slate-950/90 flex flex-col items-center justify-center cursor-pointer pointer-events-auto transition-opacity duration-700" onclick="unlockSystem()">
+        <div class="relative flex items-center justify-center w-72 h-72 mb-8">
+            <div class="absolute w-full h-full border-4 border-dashed border-cyan-400 rounded-full rotating-hud opacity-60"></div>
+            <div class="absolute w-[80%] h-[80%] border border-cyan-500 rounded-full rotating-hud-reverse opacity-40"></div>
+            <div class="absolute w-20 h-20 rounded-full bg-cyan-400/20 border-2 border-cyan-400 flex items-center justify-center neon-border animate-pulse">
+                <span class="text-3xl text-cyan-400">⚡</span>
+            </div>
+        </div>
+        <div class="text-center font-bold tracking-widest px-6 py-4 border border-cyan-400 rounded-lg bg-cyan-950/40 neon-border animate-pulse max-w-md">
+            <span class="text-lg text-white block mb-1">INITIALIZE LINK</span>
+            <span class="text-xs text-cyan-400">TAP TO SYNCHRONIZE J.A.R.V.I.S. SYSTEMS</span>
+        </div>
+        <div class="mt-4 text-[10px] font-sans text-gray-500 uppercase tracking-widest">
+            Camera & Microphone access required
         </div>
     </div>
 
+    <!-- Main HUD System HUD container -->
     <div id="hud-container" class="absolute inset-0 w-full h-full z-20 pointer-events-none hidden">
         
+        <!-- Standby Core Power-On Screen -->
         <div id="standby_screen" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-auto">
-            <div id="btn_on" class="virtual-interactive w-64 h-24 border-2 rounded-xl iron-glow flex flex-col items-center justify-center cursor-pointer bg-cyan-950/40 hover:bg-cyan-900/60 transition-all">
-                <span class="text-3xl font-bold tracking-widest text-white">START</span>
-                <span class="text-xs text-cyan-400 font-sans mt-2">J.A.R.V.I.S. SYSTEM</span>
+            <div id="btn_on" class="virtual-interactive hologram-panel w-72 h-32 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-cyan-900/40 transition-all">
+                <div class="text-4xl font-extrabold tracking-widest text-white neon-glow">BOOT SYS</div>
+                <span class="text-xs font-mono text-cyan-400 tracking-wider mt-2">> LAUNCHING J.A.R.V.I.S. CORE</span>
             </div>
         </div>
 
+        <!-- Self-Destruct / Giant Warning Countdown Overlay -->
+        <div id="destruct_overlay" class="absolute inset-0 bg-red-950/80 z-50 flex flex-col items-center justify-center hidden pointer-events-none">
+            <div class="text-red-500 font-extrabold text-9xl tracking-tighter mb-4 animate-bounce" id="destruct_countdown">10</div>
+            <div class="text-white text-3xl font-black tracking-widest uppercase animate-pulse">SYSTEM SELF DESTRUCT TERMINAL SEQUENCE</div>
+            <div class="text-red-400 font-mono text-sm mt-2">> EMERGENCY ABORT UNAVAILABLE</div>
+        </div>
+
+        <!-- Main Active OS Layout -->
         <div id="main_os" class="hidden absolute inset-0 w-full h-full">
-            
-            <div class="absolute right-4 top-20 flex flex-col space-y-6 pointer-events-auto">
-                <div id="icon_core" class="virtual-interactive flex flex-col items-center cursor-pointer group bg-cyan-950/50 p-4 rounded-lg border border-cyan-500/50 w-20 iron-glow">
-                    <div class="text-2xl mb-1 text-cyan-300">☢</div>
-                    <span class="text-[9px] text-center font-bold">CORE</span>
-                </div>
-                <div id="btn_off" class="virtual-interactive flex flex-col items-center cursor-pointer bg-red-950/50 p-4 rounded-lg border border-red-500/80 w-20 shadow-[0_0_15px_rgba(239,68,68,0.4)] mt-10">
-                    <div class="text-xl font-bold text-red-400">OFF</div>
-                </div>
-            </div>
 
-            <div id="win_core" class="draggable-window hidden absolute w-[320px] h-[220px] iron-panel rounded-lg pointer-events-auto flex flex-col" style="left: 10%; top: 20%;">
-                <div class="window-header bg-cyan-500/30 px-3 py-3 flex justify-between items-center border-b border-cyan-500/60 cursor-move">
-                    <span class="text-[10px] font-bold tracking-wider text-white">// ARC REACTOR</span>
-                    <span class="btn-close virtual-interactive text-red-400 font-bold px-3 py-1 cursor-pointer border border-red-500/50 rounded bg-red-950/40 hover:bg-red-500 hover:text-white">X</span>
+            <!-- TOP STATUS HEADER BAR -->
+            <div class="absolute top-0 left-0 right-0 h-14 bg-slate-950/60 border-b border-cyan-500/40 flex justify-between items-center px-6 pointer-events-auto z-40">
+                <div class="flex items-center space-x-3">
+                    <span class="text-xl font-black tracking-wider text-white">J.A.R.V.I.S. OS</span>
+                    <span class="text-xs font-mono text-cyan-400/80 border border-cyan-400/40 px-2 py-0.5 rounded bg-cyan-950/40 animate-pulse">V6.02 RELIABLE</span>
                 </div>
-                <div class="p-4 flex items-center justify-around flex-1">
-                    <div class="w-16 h-16 rounded-full reactor-core flex items-center justify-center">
-                        <div class="w-10 h-10 rounded-full bg-cyan-400/50 border-2 border-cyan-400 animate-pulse"></div>
+                <div class="flex items-center space-x-8 text-xs font-mono">
+                    <div id="status_mic" class="flex items-center space-x-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-green-500 animate-ping"></span>
+                        <span class="text-white">VOICE DETECT: ON</span>
                     </div>
-                    <div class="text-[10px] space-y-2">
-                        <div>OUTPUT: <span class="text-green-400 font-bold">3 GW</span></div>
-                        <div>STABILITY: <span class="text-cyan-300 font-bold">99.9%</span></div>
-                        <div class="text-[9px] text-gray-400 mt-2 border-t border-gray-600 pt-1">Pinch Header to Drag</div>
+                    <div class="hidden sm:flex items-center space-x-2">
+                        <span>CPU: <b id="sim-cpu" class="text-white">12%</b></span>
+                        <span class="text-cyan-600">|</span>
+                        <span>TEMP: <b id="sim-temp" class="text-white">41°C</b></span>
+                    </div>
+                    <div>
+                        <span class="text-gray-400">GRID SECTOR: </span>
+                        <span class="text-white" id="telemetry_sector">STARK-9021</span>
                     </div>
                 </div>
             </div>
 
-        </div>
+            <!-- SIDEBAR CONTROL MODULES (Menu buttons to pop windows) -->
+            <div class="absolute left-6 top-20 flex flex-col space-y-4 pointer-events-auto z-30">
+                <button id="btn_nav_reactor" class="virtual-interactive flex items-center justify-between w-48 h-12 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/50 rounded-lg px-4 text-xs font-bold tracking-wider transition-all">
+                    <span>☢ ARC REACTOR</span>
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/30 text-white">CORE</span>
+                </button>
+                <button id="btn_nav_suit" class="virtual-interactive flex items-center justify-between w-48 h-12 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/50 rounded-lg px-4 text-xs font-bold tracking-wider transition-all">
+                    <span>🛡 SUIT STATUS</span>
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/30 text-white">DIAG</span>
+                </button>
+                <button id="btn_nav_weapons" class="virtual-interactive flex items-center justify-between w-48 h-12 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/50 rounded-lg px-4 text-xs font-bold tracking-wider transition-all">
+                    <span>⚔ WEAPONS LAB</span>
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/30 text-white">TACT</span>
+                </button>
+                <button id="btn_nav_radar" class="virtual-interactive flex items-center justify-between w-48 h-12 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/50 rounded-lg px-4 text-xs font-bold tracking-wider transition-all">
+                    <span>🛰 SAT RADAR</span>
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/30 text-white">SCAN</span>
+                </button>
+                <button id="btn_nav_alert" class="virtual-interactive flex items-center justify-between w-48 h-12 bg-red-950/50 hover:bg-red-900/70 border border-red-500/70 rounded-lg px-4 text-xs font-bold tracking-wider transition-all text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.2)]">
+                    <span>⚠️ EMERGENCY</span>
+                    <span id="alert_badge" class="text-[9px] px-1.5 py-0.5 rounded bg-red-500 text-white">OFF</span>
+                </button>
+            </div>
 
-        <div class="absolute bottom-6 left-6 text-[10px] bg-slate-950/90 p-3 rounded-lg border border-cyan-500/50 iron-glow w-64">
-            <div>SYS STATUS: <span id="status" class="text-yellow-400 font-bold">CONNECTING</span></div>
-            <div id="live_log" class="text-white mt-1 animate-pulse">> WAITING...</div>
+            <div class="absolute right-6 top-20 flex flex-col space-y-4 pointer-events-auto z-30">
+                <button id="btn_off" class="virtual-interactive w-20 h-16 bg-red-950/40 hover:bg-red-500 hover:text-white rounded-lg border border-red-500/60 shadow-[0_0_15px_rgba(239,68,68,0.3)] flex flex-col items-center justify-center transition-all">
+                    <span class="text-xl font-bold">OFF</span>
+                    <span class="text-[8px] font-mono tracking-widest text-red-400 mt-1">SHUTDOWN</span>
+                </button>
+            </div>
+
+            <!-- DYNAMIC FLOATING WINDOWS -->
+
+            <!-- 1. WINDOW: ARC REACTOR CONTROL -->
+            <div id="win_core" class="draggable-window hidden absolute w-[340px] h-[340px] hologram-panel rounded-lg pointer-events-auto flex flex-col z-30" style="left: 60%; top: 15%;">
+                <div class="window-header bg-cyan-500/20 px-4 py-2.5 flex justify-between items-center border-b border-cyan-500/40 cursor-move">
+                    <span class="text-xs font-bold tracking-widest text-white neon-glow">// ARC REACTOR MODULE</span>
+                    <button class="btn-close virtual-interactive text-red-400 font-bold px-2 py-0.5 cursor-pointer border border-red-500/30 rounded bg-red-950/20 hover:bg-red-500 hover:text-white text-xs">X</button>
+                </div>
+                <div class="p-4 flex flex-col flex-1 justify-between font-mono text-xs">
+                    <div class="flex items-center justify-between">
+                        <!-- SVG reactor graphic -->
+                        <div class="relative w-24 h-24 flex items-center justify-center">
+                            <svg class="absolute w-full h-full rotating-hud" viewBox="0 0 100 100">
+                                <circle cx="50" cy="50" r="44" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6,4" fill="none" class="text-cyan-500/60" />
+                                <circle cx="50" cy="50" r="36" stroke="currentColor" stroke-width="1" stroke-dasharray="10,6" fill="none" class="text-cyan-400/80" />
+                                <circle cx="50" cy="50" r="28" stroke="currentColor" stroke-width="3" stroke-dasharray="4,8" fill="none" class="text-cyan-300" id="reactor_ring_inner" />
+                            </svg>
+                            <div class="w-10 h-10 rounded-full bg-cyan-400/30 border-2 border-cyan-400 animate-pulse flex items-center justify-center text-[10px] font-bold text-white shadow-[0_0_15px_rgba(6,182,212,0.6)]">
+                                99%
+                            </div>
+                        </div>
+                        <div class="w-[55%] space-y-2 text-[11px]">
+                            <div>STABILITY: <span class="text-green-400 font-bold" id="reactor-stability">99.85%</span></div>
+                            <div>TEMP: <span class="text-cyan-300 font-bold" id="reactor-temp">48.2 °C</span></div>
+                            <div>COOLANT FLOW: <span class="text-green-400 font-bold" id="coolant-status">ACTIVE</span></div>
+                            <div class="text-[9px] text-gray-400 mt-2 border-t border-cyan-500/30 pt-2 leading-tight">PINCH BAR AT TOP TO DRAG</div>
+                        </div>
+                    </div>
+
+                    <!-- Real-time Power Chart -->
+                    <div class="w-full mt-2">
+                        <div class="flex justify-between text-[10px] text-gray-400 mb-1">
+                            <span>GRID POWER OUTPUT (GW)</span>
+                            <span id="power-val">3.12 GW</span>
+                        </div>
+                        <canvas id="reactor-chart" class="w-full h-16 bg-cyan-950/20 rounded border border-cyan-500/20"></canvas>
+                    </div>
+
+                    <div class="space-y-2 mt-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px]">ROTATION VELOCITY:</span>
+                            <input id="reactor-speed-slider" type="range" min="1" max="25" value="8" class="w-32 accent-cyan-500 pointer-events-auto">
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px]">COOLANT INJECTORS:</span>
+                            <button id="btn-toggle-coolant" class="virtual-interactive px-3 py-1 bg-cyan-500/30 border border-cyan-400/60 rounded text-[9px] hover:bg-cyan-500/60 text-white font-bold uppercase transition-all">INJECT ACTIVE</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. WINDOW: MARK LXXXV SUIT DIAGNOSTICS -->
+            <div id="win_suit" class="draggable-window hidden absolute w-[360px] h-[380px] hologram-panel rounded-lg pointer-events-auto flex flex-col z-30" style="left: 20%; top: 15%;">
+                <div class="window-header bg-cyan-500/20 px-4 py-2.5 flex justify-between items-center border-b border-cyan-500/40 cursor-move">
+                    <span class="text-xs font-bold tracking-widest text-white neon-glow">// MARK LXXXV DIAGNOSTICS</span>
+                    <button class="btn-close virtual-interactive text-red-400 font-bold px-2 py-0.5 cursor-pointer border border-red-500/30 rounded bg-red-950/20 hover:bg-red-500 hover:text-white text-xs">X</button>
+                </div>
+                <div class="p-4 flex flex-1 font-mono text-xs overflow-hidden">
+                    <div class="w-[45%] flex items-center justify-center">
+                        <!-- Iron man wireframe SVG -->
+                        <svg viewBox="0 0 100 150" class="w-full h-full text-cyan-400">
+                            <!-- Outer scanning brackets -->
+                            <path d="M 5,20 L 5,5 L 20,5" stroke="currentColor" stroke-width="1" fill="none" opacity="0.4"/>
+                            <path d="M 95,20 L 95,5 L 80,5" stroke="currentColor" stroke-width="1" fill="none" opacity="0.4"/>
+                            <path d="M 5,130 L 5,145 L 20,145" stroke="currentColor" stroke-width="1" fill="none" opacity="0.4"/>
+                            <path d="M 95,130 L 95,145 L 80,145" stroke="currentColor" stroke-width="1" fill="none" opacity="0.4"/>
+
+                            <!-- Helmet -->
+                            <polygon points="42,10 58,10 63,18 58,26 42,26 37,18" stroke="currentColor" class="suit-part cursor-pointer" id="suit_part_helmet" />
+                            <circle cx="50" cy="18" r="1.5" fill="currentColor" class="animate-ping" />
+                            
+                            <!-- Torso & Chest RT -->
+                            <path d="M 38,28 L 62,28 L 64,48 L 50,65 L 36,48 Z" stroke="currentColor" class="suit-part cursor-pointer" id="suit_part_chest" />
+                            <polygon points="50,38 45,46 55,46" fill="currentColor" stroke="none" class="animate-pulse" />
+
+                            <!-- Left Arm -->
+                            <path d="M 35,30 L 22,42 L 18,65" stroke="currentColor" fill="none" stroke-width="2" class="suit-part cursor-pointer" id="suit_part_arm_l" />
+                            <circle cx="18" cy="65" r="2.5" fill="currentColor" />
+
+                            <!-- Right Arm -->
+                            <path d="M 65,30 L 78,42 L 82,65" stroke="currentColor" fill="none" stroke-width="2" class="suit-part cursor-pointer" id="suit_part_arm_r" />
+                            <circle cx="82" cy="65" r="2.5" fill="currentColor" />
+
+                            <!-- Left Leg -->
+                            <path d="M 40,66 L 38,98 L 34,136" stroke="currentColor" fill="none" stroke-width="2.5" class="suit-part cursor-pointer" id="suit_part_leg_l" />
+                            <polygon points="30,136 38,136 34,142" stroke="currentColor" class="suit-part cursor-pointer" />
+
+                            <!-- Right Leg -->
+                            <path d="M 60,66 L 62,98 L 66,136" stroke="currentColor" fill="none" stroke-width="2.5" class="suit-part cursor-pointer" id="suit_part_leg_r" />
+                            <polygon points="62,136 70,136 66,142" stroke="currentColor" class="suit-part cursor-pointer" />
+                        </svg>
+                    </div>
+                    <div class="w-[55%] pl-4 flex flex-col justify-between border-l border-cyan-500/20">
+                        <div class="space-y-3">
+                            <div class="border-b border-cyan-500/30 pb-1.5">
+                                <span class="text-gray-400 block text-[9px] uppercase">SELECTED NODE</span>
+                                <span class="font-bold text-white text-[12px] uppercase" id="suit-node-name">NANOTECH ARMOR</span>
+                            </div>
+                            <div class="space-y-1.5 text-[10px]">
+                                <div class="flex justify-between"><span>INTEGRITY:</span><span class="text-green-400 font-bold" id="suit-node-integrity">98%</span></div>
+                                <div class="flex justify-between"><span>TEMPERATURE:</span><span class="text-white" id="suit-node-temp">37.0 °C</span></div>
+                                <div class="flex justify-between"><span>POWER DRAW:</span><span class="text-cyan-300" id="suit-node-power">0.45 kW</span></div>
+                            </div>
+                            <div class="text-[9px] text-cyan-400/80 bg-cyan-950/40 p-2 border border-cyan-500/20 rounded leading-relaxed" id="suit-node-desc">
+                                Select individual component wireframes on the left model to check localized telemetry diagnostic streams.
+                            </div>
+                        </div>
+                        <div class="text-[9px] text-gray-500 italic mt-2 border-t border-cyan-500/10 pt-1">
+                            Nanotech reserve: 100%
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. WINDOW: TACTICAL WEAPON CONTROL -->
+            <div id="win_weapons" class="draggable-window hidden absolute w-[350px] h-[300px] hologram-panel rounded-lg pointer-events-auto flex flex-col z-30" style="left: 45%; top: 40%;">
+                <div class="window-header bg-cyan-500/20 px-4 py-2.5 flex justify-between items-center border-b border-cyan-500/40 cursor-move">
+                    <span class="text-xs font-bold tracking-widest text-white neon-glow">// TACTICAL WEAPON INTERFACE</span>
+                    <button class="btn-close virtual-interactive text-red-400 font-bold px-2 py-0.5 cursor-pointer border border-red-500/30 rounded bg-red-950/20 hover:bg-red-500 hover:text-white text-xs">X</button>
+                </div>
+                <div class="p-4 flex flex-col flex-1 justify-between font-mono text-xs">
+                    <!-- Repulsors Weapon -->
+                    <div class="border border-cyan-500/20 rounded p-2.5 bg-cyan-950/20 flex flex-col space-y-1">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-white">1. HAND REPULSOR GLOVES</span>
+                            <span class="text-[10px] text-green-400 font-bold" id="status-wep-repulsor">READY</span>
+                        </div>
+                        <div class="w-full bg-slate-900 h-2 rounded overflow-hidden relative">
+                            <div class="bg-cyan-400 h-full w-full transition-all duration-300" id="bar-wep-repulsor"></div>
+                        </div>
+                        <div class="flex justify-between items-center pt-1">
+                            <span class="text-[9px] text-gray-400">AMPLITUDE: DUAL REPULSOR</span>
+                            <button id="btn-fire-repulsor" class="virtual-interactive px-3 py-0.5 bg-cyan-500/30 border border-cyan-400/60 rounded text-[9px] text-white font-bold hover:bg-cyan-500">FIRE</button>
+                        </div>
+                    </div>
+
+                    <!-- Unibeam Weapon -->
+                    <div class="border border-cyan-500/20 rounded p-2.5 bg-cyan-950/20 flex flex-col space-y-1">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-white">2. CHEST ARC UNIBEAM</span>
+                            <span class="text-[10px] text-green-400 font-bold" id="status-wep-unibeam">READY</span>
+                        </div>
+                        <div class="w-full bg-slate-900 h-2 rounded overflow-hidden relative">
+                            <div class="bg-cyan-400 h-full w-full transition-all duration-300" id="bar-wep-unibeam"></div>
+                        </div>
+                        <div class="flex justify-between items-center pt-1">
+                            <span class="text-[9px] text-gray-400">DRAWS FROM PRIMARY ARC CORE</span>
+                            <button id="btn-fire-unibeam" class="virtual-interactive px-3 py-0.5 bg-cyan-500/30 border border-cyan-400/60 rounded text-[9px] text-white font-bold hover:bg-cyan-500">FIRE</button>
+                        </div>
+                    </div>
+
+                    <!-- Micro-Missiles -->
+                    <div class="border border-cyan-500/20 rounded p-2.5 bg-cyan-950/20 flex flex-col space-y-1">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-white">3. SHOULDER MICRO-MISSILES</span>
+                            <span class="text-[10px] text-green-400 font-bold" id="status-wep-missile">READY</span>
+                        </div>
+                        <div class="w-full bg-slate-900 h-2 rounded overflow-hidden relative">
+                            <div class="bg-cyan-400 h-full w-full transition-all duration-300" id="bar-wep-missile"></div>
+                        </div>
+                        <div class="flex justify-between items-center pt-1">
+                            <span class="text-[9px] text-gray-400">STOCK CAPACITY: 12/12</span>
+                            <button id="btn-fire-missile" class="virtual-interactive px-3 py-0.5 bg-cyan-500/30 border border-cyan-400/60 rounded text-[9px] text-white font-bold hover:bg-cyan-500">LAUNCH</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. WINDOW: SATELLITE RADAR SCANNER -->
+            <div id="win_radar" class="draggable-window hidden absolute w-[300px] h-[320px] hologram-panel rounded-lg pointer-events-auto flex flex-col z-30" style="left: 10%; top: 50%;">
+                <div class="window-header bg-cyan-500/20 px-4 py-2.5 flex justify-between items-center border-b border-cyan-500/40 cursor-move">
+                    <span class="text-xs font-bold tracking-widest text-white neon-glow">// SAT ORBITAL SCANNER</span>
+                    <button class="btn-close virtual-interactive text-red-400 font-bold px-2 py-0.5 cursor-pointer border border-red-500/30 rounded bg-red-950/20 hover:bg-red-500 hover:text-white text-xs">X</button>
+                </div>
+                <div class="p-4 flex flex-col flex-1 justify-between font-mono text-xs">
+                    <div class="flex justify-center relative w-full h-[180px] bg-slate-950/40 border border-cyan-500/20 rounded overflow-hidden" id="radar-container">
+                        <svg viewBox="0 0 200 200" class="w-44 h-44 my-auto relative">
+                            <!-- Radar rings -->
+                            <circle cx="100" cy="100" r="90" stroke="rgba(6, 182, 212, 0.2)" stroke-width="1.5" fill="none"/>
+                            <circle cx="100" cy="100" r="60" stroke="rgba(6, 182, 212, 0.15)" stroke-width="1" fill="none"/>
+                            <circle cx="100" cy="100" r="30" stroke="rgba(6, 182, 212, 0.15)" stroke-width="1" fill="none"/>
+                            <line x1="100" y1="10" x2="100" y2="190" stroke="rgba(6, 182, 212, 0.15)" stroke-width="1" />
+                            <line x1="10" y1="100" x2="190" y2="100" stroke="rgba(6, 182, 212, 0.15)" stroke-width="1" />
+
+                            <!-- Sweeping glow arm -->
+                            <line x1="100" y1="100" x2="100" y2="10" stroke="rgba(6, 182, 212, 0.8)" stroke-width="2.5" class="radar-scan-line" />
+
+                            <!-- Target Dots -->
+                            <g id="radar-targets"></g>
+                        </svg>
+                        <div class="absolute bottom-2 left-2 text-[9px] text-cyan-500/80">TARGET LOCKS: <span id="radar-count" class="text-white">0</span></div>
+                    </div>
+                    
+                    <div class="mt-2 bg-cyan-950/30 border border-cyan-500/20 rounded p-2 text-[9px] text-gray-400 space-y-1">
+                        <div>LAST DETECTED ANOMALY: <span id="radar-anomaly-pos" class="text-white">NONE</span></div>
+                        <div class="flex justify-between">
+                            <span>SATELLITE POSITION: LEO-85</span>
+                            <span class="text-green-400">SECURE SIGNAL</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LOGGING AND VOICE FEEDBACK FOOTER TERMINAL -->
+            <div class="absolute bottom-6 left-6 right-6 h-36 flex space-x-6 z-30 pointer-events-auto">
+                <!-- Log terminal -->
+                <div class="w-2/3 h-full bg-slate-950/85 p-3 rounded-lg border border-cyan-500/50 neon-border flex flex-col font-mono">
+                    <div class="flex justify-between items-center text-[10px] border-b border-cyan-500/30 pb-1 mb-1.5 font-bold">
+                        <span>SYSTEM LOG TELEMETRY DECK</span>
+                        <span class="text-green-400 animate-pulse">> ONLINE</span>
+                    </div>
+                    <div id="live_log" class="text-white text-[11px] overflow-y-auto flex-1 custom-scroll space-y-0.5 leading-relaxed">
+                        <div>> Initiating hand gesture spatial synchronization...</div>
+                        <div>> Loading Audio synthetics deck...</div>
+                    </div>
+                </div>
+                <!-- Telemetry reticle coordinates -->
+                <div class="w-1/3 h-full bg-slate-950/85 p-3 rounded-lg border border-cyan-500/50 neon-border flex flex-col font-mono text-xs justify-between">
+                    <div class="text-[10px] font-bold border-b border-cyan-500/30 pb-1">
+                        HAND TELEMETRY TRACKER
+                    </div>
+                    <div class="space-y-1.5 text-[11px] text-gray-400 flex-1 flex flex-col justify-center">
+                        <div class="flex justify-between">
+                            <span>INDEX POINTER:</span>
+                            <span class="text-white" id="hand_ptr">X: -- / Y: --</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>PINCH DISTANCE:</span>
+                            <span class="text-white" id="hand_pinch">-- mm</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>DWELL PROGRESS:</span>
+                            <div class="w-20 bg-slate-900 h-2 rounded mt-0.5 overflow-hidden">
+                                <div class="bg-cyan-400 h-full w-0" id="dwell_fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-[9px] text-cyan-500/80 leading-none">
+                        COMMAND INPUT: <span id="heard-voice-command" class="text-white uppercase font-bold text-[10px] neon-glow">WAITING FOR COMMAND</span>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
     <script>
-        // Elements
+        // DOM Elements
         const unlockScreen = document.getElementById('unlock_screen');
         const hudContainer = document.getElementById('hud-container');
         const standbyScreen = document.getElementById('standby_screen');
         const mainOS = document.getElementById('main_os');
         const liveLog = document.getElementById('live_log');
+        const heardCommandText = document.getElementById('heard-voice-command');
 
         const videoElement = document.getElementById('input_video');
         const canvasElement = document.getElementById('output_canvas');
         const canvasCtx = canvasElement.getContext('2d');
 
+        // Global State variables
+        let voiceEnabled = false;
         let activeWindow = null;
         let grabOffset = { x: 0, y: 0 };
         let isClickLocked = false;
-        let voiceEnabled = false;
+        let redAlertMode = false;
+        let isSelfDestructing = false;
 
-        // --- 1. JARVIS VOICE SYSTEM ---
+        // Custom simulated telemetry stats
+        let simCpuVal = 12;
+        let simTempVal = 41;
+        setInterval(() => {
+            if (standbyScreen.classList.contains('hidden') && !isSelfDestructing) {
+                simCpuVal = Math.floor(Math.random() * 15) + (redAlertMode ? 50 : 10);
+                simTempVal = Math.floor(Math.random() * 5) + (redAlertMode ? 70 : 40);
+                document.getElementById('sim-cpu').innerText = `${simCpuVal}%`;
+                document.getElementById('sim-temp').innerText = `${simTempVal}°C`;
+            }
+        }, 1500);
+
+        // --- 1. WEB AUDIO SYNTHESIZER ENGINE (No external MP3 files needed!) ---
+        const AudioSynth = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            playClick() {
+                this.init();
+                const t = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.frequency.setValueAtTime(1400, t);
+                osc.frequency.exponentialRampToValueAtTime(2000, t + 0.05);
+                gain.gain.setValueAtTime(0.12, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+                osc.start(t);
+                osc.stop(t + 0.05);
+            },
+            playChirp() {
+                this.init();
+                const t = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.frequency.setValueAtTime(800, t);
+                osc.frequency.exponentialRampToValueAtTime(1600, t + 0.1);
+                gain.gain.setValueAtTime(0.1, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+                osc.start(t);
+                osc.stop(t + 0.1);
+            },
+            playStartup() {
+                this.init();
+                const t = this.ctx.currentTime;
+                const chord = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99]; // Beautiful digital chord sweep
+                chord.forEach((f, index) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(f, t + index * 0.08);
+                    gain.gain.setValueAtTime(0, t);
+                    gain.gain.linearRampToValueAtTime(0.1, t + index * 0.08 + 0.03);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + index * 0.08 + 0.7);
+                    osc.start(t + index * 0.08);
+                    osc.stop(t + index * 0.08 + 0.7);
+                });
+            },
+            playShutdown() {
+                this.init();
+                const t = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, t);
+                osc.frequency.linearRampToValueAtTime(60, t + 0.8);
+                gain.gain.setValueAtTime(0.2, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+                osc.start(t);
+                osc.stop(t + 0.8);
+            },
+            playSirenLoop() {
+                if (!redAlertMode) return;
+                this.init();
+                const t = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(550, t);
+                osc.frequency.linearRampToValueAtTime(750, t + 0.4);
+                osc.frequency.linearRampToValueAtTime(550, t + 0.8);
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.07, t + 0.2);
+                gain.gain.linearRampToValueAtTime(0.07, t + 0.6);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+                osc.start(t);
+                osc.stop(t + 0.8);
+                
+                // Siren loops every 1.5 seconds
+                setTimeout(() => this.playSirenLoop(), 1500);
+            },
+            playExplosion() {
+                this.init();
+                const t = this.ctx.currentTime;
+                const bufferSize = this.ctx.sampleRate * 2.0;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(900, t);
+                filter.frequency.exponentialRampToValueAtTime(20, t + 1.8);
+                
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.5, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
+                
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start(t);
+                noise.stop(t + 2.0);
+            },
+            playCharge(durationSec) {
+                this.init();
+                const t = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.frequency.setValueAtTime(80, t);
+                osc.frequency.exponentialRampToValueAtTime(1400, t + durationSec);
+                gain.gain.setValueAtTime(0.01, t);
+                gain.gain.linearRampToValueAtTime(0.18, t + durationSec);
+                osc.start(t);
+                osc.stop(t + durationSec);
+            },
+            playBlast() {
+                this.init();
+                const t = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(600, t);
+                osc.frequency.exponentialRampToValueAtTime(40, t + 0.5);
+                gain.gain.setValueAtTime(0.3, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+                osc.start(t);
+                osc.stop(t + 0.6);
+            }
+        };
+
+        // --- 2. JARVIS VOICE RESPONSES ---
         function speakJarvis(text) {
             if (!voiceEnabled || !('speechSynthesis' in window)) return;
-            window.speechSynthesis.cancel(); // Stop current speech
+            window.speechSynthesis.cancel(); // Abort previous speech
+            
             const msg = new SpeechSynthesisUtterance(text);
             msg.lang = 'en-US';
-            msg.rate = 0.9;  // Slightly slower, robotic pace
-            msg.pitch = 0.5; // Deeper voice
+            msg.rate = 0.95;  // Slightly robotic slow rate
+            msg.pitch = 0.45; // Deep mechanical voice
             msg.volume = 1;
+            
+            // Query for nice deep local voices
+            const voices = window.speechSynthesis.getVoices();
+            if (voices && voices.length > 0) {
+                const candidate = voices.find(v => v.name.includes("Google US English") || v.name.includes("Microsoft David") || v.name.includes("Male") || v.name.includes("en-US"));
+                if (candidate) msg.voice = candidate;
+            }
             window.speechSynthesis.speak(msg);
         }
 
-        // Must be triggered by a real physical click first
-        function unlockAudio() {
+        // Webkit speech synthesis requires a user gesture to trigger first sound.
+        function unlockSystem() {
             voiceEnabled = true;
-            unlockScreen.classList.add('hidden');
-            hudContainer.classList.remove('hidden');
-            
-            // Play empty sound to unlock audio context in mobile browsers
-            const unlockMsg = new SpeechSynthesisUtterance("");
-            window.speechSynthesis.speak(unlockMsg);
-            
-            liveLog.innerText = "> Audio Systems Online.";
+            unlockScreen.style.opacity = '0';
+            setTimeout(() => {
+                unlockScreen.classList.add('hidden');
+                hudContainer.classList.remove('hidden');
+                AudioSynth.init();
+                AudioSynth.playChirp();
+                logToHUD("Audio synthesizer engine online.");
+                logToHUD("Voice telemetry synchronization initialized.");
+            }, 700);
         }
 
-        // Resize
+        function logToHUD(text) {
+            const time = new Date();
+            const timeStr = `[${time.toTimeString().split(' ')[0]}]`;
+            const div = document.createElement('div');
+            div.innerText = `${timeStr} ${text}`;
+            liveLog.appendChild(div);
+            liveLog.scrollTop = liveLog.scrollHeight;
+        }
+
+        // Resize Canvas
         function resizeCanvas() {
             canvasElement.width = window.innerWidth;
             canvasElement.height = window.innerHeight;
@@ -152,18 +759,169 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        // --- 2. COORDINATE FIX FOR MOBILE ---
-        function normalizeToScreen(landmark) {
-            return { 
-                x: (1 - landmark.x) * window.innerWidth, 
-                y: landmark.y * window.innerHeight 
+        // --- 3. SPEECH COMMAND INPUT CENTER ---
+        let recognition = null;
+        function initSpeechRecognition() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                logToHUD("Warning: Browser does not support speech recognition.");
+                return;
+            }
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = function(event) {
+                const lastResultIndex = event.results.length - 1;
+                const commandText = event.results[lastResultIndex][0].transcript.trim().toLowerCase();
+                heardCommandText.innerText = commandText;
+                logToHUD(`Speech input: "${commandText}"`);
+                handleVoiceCommand(commandText);
             };
+
+            recognition.onerror = function(event) {
+                console.error("Speech Recognition Error:", event.error);
+                if (event.error === 'not-allowed') {
+                    logToHUD("Warning: Microphone permissions denied.");
+                    document.getElementById('status_mic').innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-red-500"></span><span class="text-red-400">MIC BLOCKED</span>`;
+                }
+            };
+
+            recognition.onend = function() {
+                // Keep listening active while OS is running
+                if (voiceEnabled && standbyScreen.classList.contains('hidden') && !isSelfDestructing) {
+                    try { recognition.start(); } catch(e) {}
+                }
+            };
+
+            try {
+                recognition.start();
+                logToHUD("Voice recognition deck online.");
+            } catch(e) {
+                console.log("Recognition active");
+            }
         }
 
-        function getPinch(landmarks) {
-            const thumbTip = landmarks[4];
-            const indexTip = landmarks[8];
-            return Math.sqrt(Math.pow(thumbTip.x - indexTip.x, 2) + Math.pow(thumbTip.y - indexTip.y, 2)) < 0.05;
+        // --- 4. VOICE COMMAND LOGIC ---
+        function handleVoiceCommand(cmd) {
+            // Pulse HUD border to indicate processing command
+            const border = document.getElementById('hud-pulse-border');
+            border.classList.add(redAlertMode ? 'border-red-500' : 'border-cyan-400', 'shadow-[inset_0_0_50px_rgba(6,182,212,0.3)]');
+            setTimeout(() => border.classList.remove('border-red-500', 'border-cyan-400', 'shadow-[inset_0_0_50px_rgba(6,182,212,0.3)]'), 1000);
+
+            // Wake word triggers
+            if (cmd === "jarvis" || cmd === "hey jarvis") {
+                speakJarvis("At your service, sir. What are your instructions?");
+                return;
+            }
+
+            // Command: Status
+            if (cmd.includes("status") || cmd.includes("diagnostics")) {
+                let diag = redAlertMode 
+                    ? "Warning, we are currently under emergency Red Alert. Weapon systems charged, Arc reactor stability volatile."
+                    : `Systems nominal. Core temperature at ${simTempVal} degrees. Reactor outputting 3.1 Gigawatts. Hand tracking sensors stabilized.`;
+                speakJarvis(diag);
+                logToHUD(`Jarvis: "${diag}"`);
+                return;
+            }
+
+            // Command: Open/Close windows
+            if (cmd.includes("open") || cmd.includes("show")) {
+                if (cmd.includes("reactor") || cmd.includes("core")) {
+                    showWindow('win_core');
+                    speakJarvis("Accessing Arc Reactor core grid.");
+                } else if (cmd.includes("suit") || cmd.includes("diagnostics") || cmd.includes("armor")) {
+                    showWindow('win_suit');
+                    speakJarvis("Opening suit telemetry diagnostics.");
+                } else if (cmd.includes("weapon") || cmd.includes("tactical")) {
+                    showWindow('win_weapons');
+                    speakJarvis("Initializing tactical weapons array.");
+                } else if (cmd.includes("radar") || cmd.includes("scanner") || cmd.includes("satellite")) {
+                    showWindow('win_radar');
+                    speakJarvis("Opening satellite scanning arrays.");
+                } else if (cmd.includes("all")) {
+                    showWindow('win_core');
+                    showWindow('win_suit');
+                    showWindow('win_weapons');
+                    showWindow('win_radar');
+                    speakJarvis("All displays online.");
+                }
+                return;
+            }
+
+            if (cmd.includes("close") || cmd.includes("hide") || cmd.includes("minimize")) {
+                if (cmd.includes("reactor") || cmd.includes("core")) {
+                    hideWindow('win_core');
+                } else if (cmd.includes("suit") || cmd.includes("diagnostics") || cmd.includes("armor")) {
+                    hideWindow('win_suit');
+                } else if (cmd.includes("weapon") || cmd.includes("tactical")) {
+                    hideWindow('win_weapons');
+                } else if (cmd.includes("radar") || cmd.includes("scanner") || cmd.includes("satellite")) {
+                    hideWindow('win_radar');
+                } else if (cmd.includes("all") || cmd.includes("windows")) {
+                    document.querySelectorAll('.draggable-window').forEach(w => w.classList.add('hidden'));
+                    speakJarvis("All dashboards closed.");
+                }
+                return;
+            }
+
+            // Command: Red Alert emergency
+            if (cmd.includes("red alert") || cmd.includes("emergency")) {
+                triggerRedAlert();
+                return;
+            }
+
+            // Command: Clear Alert
+            if (cmd.includes("cancel alert") || cmd.includes("clear alert") || cmd.includes("stand down") || cmd.includes("green alert")) {
+                cancelRedAlert();
+                return;
+            }
+
+            // Command: Self destruct
+            if (cmd.includes("self destruct") || cmd.includes("destroy system")) {
+                triggerSelfDestruct();
+                return;
+            }
+
+            // Command: Fire weapons
+            if (cmd.includes("fire") || cmd.includes("launch") || cmd.includes("activate")) {
+                if (cmd.includes("repulsor")) {
+                    fireWeapon('repulsor');
+                } else if (cmd.includes("unibeam")) {
+                    fireWeapon('unibeam');
+                } else if (cmd.includes("missile") || cmd.includes("missiles")) {
+                    fireWeapon('missile');
+                }
+                return;
+            }
+
+            // Fun conversations
+            if (cmd.includes("hello") || cmd.includes("hi jarvis")) {
+                speakJarvis("Hello, sir. Operational loops are active.");
+            } else if (cmd.includes("thank you") || cmd.includes("thanks")) {
+                speakJarvis("My pleasure, sir.");
+            } else if (cmd.includes("who is iron man") || cmd.includes("who are you")) {
+                speakJarvis("I am J.A.R.V.I.S., a localized holographic diagnostic engine. You are Tony Stark.");
+            }
+        }
+
+        // --- 5. WINDOW MANAGEMENT INTERACTIVE ROUTINES ---
+        function showWindow(id) {
+            const win = document.getElementById(id);
+            if (win) {
+                win.classList.remove('hidden');
+                focusWindow(win);
+                AudioSynth.playChirp();
+            }
+        }
+
+        function hideWindow(id) {
+            const win = document.getElementById(id);
+            if (win) {
+                win.classList.add('hidden');
+                AudioSynth.playClick();
+            }
         }
 
         function focusWindow(win) {
@@ -172,119 +930,564 @@
             win.style.zIndex = "50";
         }
 
-        // --- 3. SYSTEM LOGIC & BUTTON ACTIONS ---
+        // Interactive HUD buttons binding
+        document.getElementById('btn_nav_reactor').onclick = () => showWindow('win_core');
+        document.getElementById('btn_nav_suit').onclick = () => showWindow('win_suit');
+        document.getElementById('btn_nav_weapons').onclick = () => showWindow('win_weapons');
+        document.getElementById('btn_nav_radar').onclick = () => showWindow('win_radar');
+        
+        document.getElementById('btn_nav_alert').onclick = () => {
+            if (!redAlertMode) triggerRedAlert();
+            else cancelRedAlert();
+        };
+
+        document.getElementById('btn_on').onclick = () => {
+            standbyScreen.classList.add('hidden');
+            mainOS.classList.remove('hidden');
+            logToHUD("J.A.R.V.I.S. operating environment started.");
+            AudioSynth.playStartup();
+            speakJarvis("J.A.R.V.I.S. operational structure active. All systems online and responsive, sir.");
+            initSpeechRecognition();
+            
+            // Show core by default
+            showWindow('win_core');
+        };
+
+        document.getElementById('btn_off').onclick = () => {
+            mainOS.classList.add('hidden');
+            standbyScreen.classList.remove('hidden');
+            document.querySelectorAll('.draggable-window').forEach(w => w.classList.add('hidden'));
+            logToHUD("J.A.R.V.I.S. core power shutdown.");
+            AudioSynth.playShutdown();
+            speakJarvis("Core offline. Powering down localized interfaces. Goodbye, sir.");
+        };
+
+        // Close button logic
+        document.querySelectorAll('.btn-close').forEach(btn => {
+            btn.onclick = (e) => {
+                const win = e.target.closest('.draggable-window');
+                if (win) hideWindow(win.id);
+            };
+        });
+
+        // --- 6. DRAG WINDOW LOGE (Virtual Pinch & Physics) ---
         function handleInteraction(element) {
-            if (element.id === 'btn_on') {
-                standbyScreen.classList.add('hidden');
-                mainOS.classList.remove('hidden');
-                liveLog.innerText = "> System Activated.";
-                speakJarvis("J.A.R.V.I.S. system activated. All systems online and ready, sir.");
-            } 
-            else if (element.id === 'icon_core') { 
-                const win = document.getElementById('win_core');
-                win.classList.remove('hidden'); 
-                focusWindow(win);
-                speakJarvis("Accessing Arc Reactor Core.");
-            }
-            else if (element.id === 'btn_off') {
-                mainOS.classList.add('hidden');
-                standbyScreen.classList.remove('hidden');
-                // Hide all open windows when shutting down
-                document.querySelectorAll('.draggable-window').forEach(w => w.classList.add('hidden'));
-                liveLog.innerText = "> System Offline.";
-                speakJarvis("Powering down all primary systems. Goodbye, sir.");
-            }
-            else if (element.classList.contains('btn-close')) {
-                element.closest('.draggable-window').classList.add('hidden');
-                speakJarvis("Window closed.");
+            if (element.classList.contains('virtual-interactive')) {
+                element.click();
             }
         }
 
-        // --- 4. MEDIA PIPE TRACKING ---
+        // --- 7. REACTOR DYNAMICS, CHART, COOLANTS ---
+        const reactorSlider = document.getElementById('reactor-speed-slider');
+        const coolantBtn = document.getElementById('btn-toggle-coolant');
+        let reactorRotateVel = 8;
+        let coolantFlowing = true;
+        let reactorTemp = 48.2;
+        let reactorStability = 99.85;
+
+        reactorSlider.oninput = (e) => {
+            reactorRotateVel = parseInt(e.target.value);
+            document.getElementById('reactor_ring_inner').style.animationDuration = `${30 / reactorRotateVel}s`;
+            AudioSynth.playClick();
+        };
+
+        coolantBtn.onclick = () => {
+            coolantFlowing = !coolantFlowing;
+            AudioSynth.playChirp();
+            if (coolantFlowing) {
+                coolantBtn.innerText = "INJECT ACTIVE";
+                coolantBtn.classList.remove('bg-red-500/30', 'border-red-400/60');
+                coolantBtn.classList.add('bg-cyan-500/30', 'border-cyan-400/60');
+                document.getElementById('coolant-status').innerText = "ACTIVE";
+                document.getElementById('coolant-status').className = "text-green-400 font-bold";
+                logToHUD("Coolant flow re-established. Temperatures falling.");
+            } else {
+                coolantBtn.innerText = "INJECT SUSPEND";
+                coolantBtn.classList.remove('bg-cyan-500/30', 'border-cyan-400/60');
+                coolantBtn.classList.add('bg-red-500/30', 'border-red-400/60');
+                document.getElementById('coolant-status').innerText = "SUSPENDED";
+                document.getElementById('coolant-status').className = "text-red-400 font-bold";
+                logToHUD("Warning: Coolant flow deactivated. Critical temperature rise detected!");
+            }
+        };
+
+        // Real-time canvas line chart drawing
+        const rChart = document.getElementById('reactor-chart');
+        const rCtx = rChart.getContext('2d');
+        let chartData = Array(30).fill(3.12);
+
+        function updateReactorChart() {
+            // Coolant logic
+            if (coolantFlowing) {
+                if (reactorTemp > 48.0) reactorTemp -= 0.35;
+                if (reactorStability < 99.8) reactorStability += 0.05;
+            } else {
+                reactorTemp += 0.85;
+                reactorStability -= 0.15;
+                if (reactorTemp > 100 && Math.random() < 0.15 && !isSelfDestructing) {
+                    speakJarvis("Warning: Arc core temperature critical. Meltdown probability imminent. Coolant injection recommended.");
+                }
+            }
+
+            document.getElementById('reactor-temp').innerText = `${reactorTemp.toFixed(1)} °C`;
+            document.getElementById('reactor-stability').innerText = `${reactorStability.toFixed(2)}%`;
+            
+            // Adjust colors of text
+            if (reactorTemp > 85) {
+                document.getElementById('reactor-temp').className = "text-red-500 font-bold animate-pulse";
+            } else if (reactorTemp > 65) {
+                document.getElementById('reactor-temp').className = "text-yellow-400 font-bold";
+            } else {
+                document.getElementById('reactor-temp').className = "text-cyan-300 font-bold";
+            }
+
+            // Power variation
+            let basePower = 3.12 + (reactorRotateVel - 8) * 0.1;
+            if (!coolantFlowing) basePower += (reactorTemp - 48) * 0.02;
+            let currentPower = basePower + (Math.random() * 0.08 - 0.04);
+            document.getElementById('power-val').innerText = `${currentPower.toFixed(2)} GW`;
+            chartData.shift();
+            chartData.push(currentPower);
+
+            rCtx.clearRect(0, 0, rChart.width, rChart.height);
+            rCtx.beginPath();
+            rCtx.strokeStyle = redAlertMode || !coolantFlowing ? '#f87171' : '#06b6d4';
+            rCtx.lineWidth = 1.5;
+            
+            const step = rChart.width / 29;
+            for (let i = 0; i < 30; i++) {
+                // map power from 2.0 - 5.0 GW to Y axis
+                let valY = rChart.height - ((chartData[i] - 2.0) / 3.0) * rChart.height;
+                if (i === 0) rCtx.moveTo(0, valY);
+                else rCtx.lineTo(i * step, valY);
+            }
+            rCtx.stroke();
+
+            setTimeout(updateReactorChart, 150);
+        }
+        updateReactorChart();
+
+        // --- 8. SUIT INTERACTIVE ZONE CLICK/HOVERS ---
+        const suitParts = {
+            suit_part_helmet: {
+                name: "Helmet Telemetry",
+                integrity: "98%",
+                temp: "36.8 °C",
+                power: "0.12 kW",
+                desc: "Helmet HUD unit is fully synchronized with pilot visual gaze. Tactical targeting arrays operating at nominal efficiency.",
+                speech: "Helmet diagnostics: HUD tracking active. Telemetry linked."
+            },
+            suit_part_chest: {
+                name: "Nanotech Chest Guard",
+                integrity: "100%",
+                temp: "38.2 °C",
+                power: "0.85 kW",
+                desc: "Primary vibranium core stabilization armor layer is fully charged. Magnetic containment shields active.",
+                speech: "Chest guard diagnostics: Vibro-containment shield structural integrity is at maximum capacity."
+            },
+            suit_part_arm_l: {
+                name: "Left Repulsor Glove",
+                integrity: "97%",
+                temp: "37.5 °C",
+                power: "0.22 kW",
+                desc: "Repulsor weapon capacitor is fully charged. Nanotech configuration arrays ready for micro-weapons alignment.",
+                speech: "Left arm diagnostics: Repulsor array charged."
+            },
+            suit_part_arm_r: {
+                name: "Right Repulsor Glove",
+                integrity: "96%",
+                temp: "37.4 °C",
+                power: "0.24 kW",
+                desc: "Repulsor weapon capacitor is fully charged. Secondary guidance arrays synchronized with primary optical trackers.",
+                speech: "Right arm diagnostics: Weapon alignment calibrated."
+            },
+            suit_part_leg_l: {
+                name: "Left Stabilizer Leg",
+                integrity: "99%",
+                temp: "36.5 °C",
+                power: "0.08 kW",
+                desc: "Flight stability jets and shock absorption systems ready. Magnetic ankle grips operating nominal.",
+                speech: "Left leg diagnostics: Flight thrusters aligned."
+            },
+            suit_part_leg_r: {
+                name: "Right Stabilizer Leg",
+                integrity: "98%",
+                temp: "36.6 °C",
+                power: "0.09 kW",
+                desc: "Flight stability jets and shock absorption systems ready. Hydraulic balance compensators active.",
+                speech: "Right leg diagnostics: Balance hydraulics normalized."
+            }
+        };
+
+        Object.keys(suitParts).forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.onclick = () => {
+                    const data = suitParts[id];
+                    document.getElementById('suit-node-name').innerText = data.name;
+                    document.getElementById('suit-node-integrity').innerText = data.integrity;
+                    document.getElementById('suit-node-temp').innerText = data.temp;
+                    document.getElementById('suit-node-power').innerText = data.power;
+                    document.getElementById('suit-node-desc').innerText = data.desc;
+                    speakJarvis(data.speech);
+                    AudioSynth.playChirp();
+                    logToHUD(`Suit Diagnostic: Checked ${data.name}`);
+                };
+            }
+        });
+
+        // --- 9. TACTICAL WEAPON FUNCTIONS ---
+        function fireWeapon(wepType) {
+            const bar = document.getElementById(`bar-wep-${wepType}`);
+            const stat = document.getElementById(`status-wep-${wepType}`);
+            
+            if (stat.innerText === "CHARGING" || stat.innerText === "DISCHARGING") return;
+            
+            logToHUD(`Tactical: Charging ${wepType.toUpperCase()} systems...`);
+            stat.innerText = "CHARGING";
+            stat.className = "text-yellow-400 font-bold animate-pulse";
+            bar.style.width = '0%';
+            
+            const chargeTime = wepType === 'unibeam' ? 4000 : 2000;
+            AudioSynth.playCharge(chargeTime / 1000);
+            
+            // Animate charge bar
+            let startTime = null;
+            function animateCharge(timestamp) {
+                if (!startTime) startTime = timestamp;
+                let progress = timestamp - startTime;
+                let pct = Math.min((progress / chargeTime) * 100, 100);
+                bar.style.width = `${pct}%`;
+                if (progress < chargeTime) {
+                    requestAnimationFrame(animateCharge);
+                } else {
+                    // Fire!
+                    stat.innerText = "DISCHARGING";
+                    stat.className = "text-red-500 font-extrabold animate-ping";
+                    AudioSynth.playBlast();
+                    logToHUD(`Tactical: FIRE ${wepType.toUpperCase()}!`);
+                    speakJarvis(`${wepType} discharged, sir.`);
+                    
+                    setTimeout(() => {
+                        bar.style.width = '100%';
+                        stat.innerText = "READY";
+                        stat.className = "text-green-400 font-bold";
+                    }, 2500);
+                }
+            }
+            requestAnimationFrame(animateCharge);
+        }
+
+        document.getElementById('btn-fire-repulsor').onclick = () => fireWeapon('repulsor');
+        document.getElementById('btn-fire-unibeam').onclick = () => fireWeapon('unibeam');
+        document.getElementById('btn-fire-missile').onclick = () => fireWeapon('missile');
+
+        // --- 10. RADAR SCANNER ANOMALIES SIMULATOR ---
+        const rTgtGroup = document.getElementById('radar-targets');
+        let radarTargets = [];
+
+        function createRadarTarget() {
+            if (radarTargets.length >= 4) return;
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.random() * 50 + 20; // radius range 20 to 70
+            const tgtId = `TGT-${Math.floor(Math.random() * 800) + 100}`;
+            
+            const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            dot.setAttribute("cx", 100 + dist * Math.cos(angle));
+            dot.setAttribute("cy", 100 + dist * Math.sin(angle));
+            dot.setAttribute("r", 3.5);
+            dot.setAttribute("fill", "#06b6d4");
+            dot.setAttribute("class", "cursor-pointer animate-ping hover:fill-red-500");
+            dot.style.transformOrigin = "100px 100px";
+            
+            dot.onclick = () => {
+                dot.setAttribute("fill", "#ef4444");
+                const distanceM = Math.floor(dist * 6);
+                speakJarvis(`Locking telemetry vector on target ${tgtId} at distance ${distanceM} meters.`);
+                document.getElementById('radar-anomaly-pos').innerText = `${tgtId} LOCK [Dist: ${distanceM}m / Bearing: ${Math.floor(angle * 180 / Math.PI)}°]`;
+                logToHUD(`Radar: Locked anomaly target ${tgtId}`);
+                AudioSynth.playChirp();
+            };
+
+            rTgtGroup.appendChild(dot);
+            radarTargets.push({ el: dot, angle, dist, id: tgtId });
+            document.getElementById('radar-count').innerText = radarTargets.length;
+        }
+
+        // Sweeping loop triggers target detections
+        function updateRadar() {
+            radarTargets.forEach((tgt) => {
+                // Drifting targets
+                tgt.angle += 0.005;
+                tgt.el.setAttribute("cx", 100 + tgt.dist * Math.cos(tgt.angle));
+                tgt.el.setAttribute("cy", 100 + tgt.dist * Math.sin(tgt.angle));
+            });
+            
+            if (Math.random() < 0.03) {
+                createRadarTarget();
+            }
+            setTimeout(updateRadar, 100);
+        }
+        updateRadar();
+
+        // --- 11. EMERGENCY RED ALERT & SELF DESTRUCT ROUTINES ---
+        function triggerRedAlert() {
+            redAlertMode = true;
+            document.body.classList.add('red-alert-active');
+            document.getElementById('alert_badge').innerText = "ACTIVE";
+            document.getElementById('alert_badge').className = "text-[9px] px-1.5 py-0.5 rounded bg-red-600 text-white animate-pulse";
+            document.getElementById('btn_nav_alert').classList.add('pinch-active');
+            logToHUD("Warning: DEFENSIVE SECURITY GRID ACTIVATED. RED ALERT ON.");
+            speakJarvis("Warning. Red Alert triggered. Initiating security grid protocols, armaments primed.");
+            AudioSynth.playSirenLoop();
+        }
+
+        function cancelRedAlert() {
+            redAlertMode = false;
+            document.body.classList.remove('red-alert-active');
+            document.getElementById('alert_badge').innerText = "OFF";
+            document.getElementById('alert_badge').className = "text-[9px] px-1.5 py-0.5 rounded bg-red-500 text-white";
+            document.getElementById('btn_nav_alert').classList.remove('pinch-active');
+            logToHUD("Security Grid alert cancelled. Restoring normal parameters.");
+            speakJarvis("Red alert canceled, sir. Normal operating levels restored.");
+        }
+
+        function triggerSelfDestruct() {
+            if (isSelfDestructing) return;
+            isSelfDestructing = true;
+            document.querySelectorAll('.draggable-window').forEach(w => w.classList.add('hidden'));
+            
+            const overlay = document.getElementById('destruct_overlay');
+            const countdownEl = document.getElementById('destruct_countdown');
+            overlay.classList.remove('hidden');
+            
+            logToHUD("CRITICAL: SELF-DESTRUCT INITIALIZED. SHUTTING DOWN CORE GRID.");
+            speakJarvis("Warning: Emergency self-destruct sequence initiated. System termination in ten seconds. Goodbye, sir.");
+            
+            let count = 10;
+            const interval = setInterval(() => {
+                count--;
+                countdownEl.innerText = count;
+                AudioSynth.playChirp();
+                
+                if (count === 8) speakJarvis("Eight");
+                if (count === 5) speakJarvis("Five");
+                if (count === 3) speakJarvis("Three, two, one");
+                
+                if (count <= 0) {
+                    clearInterval(interval);
+                    AudioSynth.playExplosion();
+                    
+                    // Kill overlay, render absolute blank
+                    document.body.innerHTML = `
+                        <div class="h-screen w-screen bg-black text-red-600 font-mono flex flex-col items-center justify-center p-6 select-none">
+                            <span class="text-4xl font-extrabold border-2 border-red-600 p-8 shadow-[0_0_30px_rgba(239,68,68,0.7)] animate-pulse">J.A.R.V.I.S. OFFLINE - CORES TERMINATED</span>
+                            <span class="text-xs text-gray-600 mt-6 tracking-widest uppercase">System structural damage: 100% | Critical Reactor Loss</span>
+                        </div>
+                    `;
+                }
+            }, 1000);
+        }
+
+        // --- 12. MEDIAPIPE MULTI-HAND SPATIAL DETECT AND DWELL CONTROL ---
+        const hoverTimes = new Map(); // Track hover timings of interactive elements
+        let lastPinchState = false;
+
+        function normalizeToScreen(landmark) {
+            // Mirror coordinate since canvas mapping coordinates are inverted
+            return { 
+                x: (1 - landmark.x) * window.innerWidth, 
+                y: landmark.y * window.innerHeight 
+            };
+        }
+
+        function getDistance(lm1, lm2) {
+            return Math.sqrt(Math.pow(lm1.x - lm2.x, 2) + Math.pow(lm1.y - lm2.y, 2));
+        }
+
         function onResults(results) {
-            document.getElementById('status').innerText = "TRACKING ACTIVE";
-            document.getElementById('status').className = "text-green-400 font-bold";
+            // Mark active tracking status
+            const sysStatus = document.getElementById('hand_ptr');
+            const pinchStatus = document.getElementById('hand_pinch');
 
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-            if (results.multiHandLandmarks) {
-                for (const landmarks of results.multiHandLandmarks) {
-                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#06b6d4', lineWidth: 2});
-                    drawLandmarks(canvasCtx, landmarks, {color: '#ef4444', lineWidth: 1, radius: 4}); // Bigger red dots
-                }
+            let handsDetected = results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
 
-                if (results.multiHandLandmarks.length > 0) {
-                    const hand = results.multiHandLandmarks[0];
-                    const indexTip = normalizeToScreen(hand[8]);
-                    const isPinching = getPinch(hand);
-                    let interactingWithUI = false;
-
-                    // BUTTON CLICKS
-                    const interactables = Array.from(document.querySelectorAll('.virtual-interactive')).filter(el => el.closest('.hidden') === null);
+            if (handsDetected) {
+                for (let hIndex = 0; hIndex < results.multiHandLandmarks.length; hIndex++) {
+                    const landmarks = results.multiHandLandmarks[hIndex];
                     
-                    interactables.forEach(el => {
-                        const rect = el.getBoundingClientRect(); 
-                        if (indexTip.x > rect.left && indexTip.x < rect.right && indexTip.y > rect.top && indexTip.y < rect.bottom) {
-                            interactingWithUI = true;
-                            if (isPinching) {
-                                el.classList.add('pinch-active');
-                                if (!isClickLocked) {
-                                    isClickLocked = true;
-                                    handleInteraction(el);
+                    // Draw Hand Skeleton custom design style
+                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
+                        color: redAlertMode ? '#f87171' : '#06b6d4', 
+                        lineWidth: 1.5
+                    });
+                    
+                    // Draw glowing cyber joints
+                    for (let i = 0; i < landmarks.length; i++) {
+                        const pt = normalizeToScreen(landmarks[i]);
+                        canvasCtx.beginPath();
+                        canvasCtx.arc(pt.x, pt.y, i === 8 || i === 4 ? 6 : 3, 0, 2 * Math.PI);
+                        canvasCtx.fillStyle = redAlertMode ? 'rgba(239, 68, 68, 0.7)' : 'rgba(6, 182, 212, 0.7)';
+                        canvasCtx.fill();
+                    }
+
+                    // Grab first hand for cursor control
+                    if (hIndex === 0) {
+                        const indexTip = normalizeToScreen(landmarks[8]);
+                        const thumbTip = normalizeToScreen(landmarks[4]);
+                        const rawDist = getDistance(landmarks[4], landmarks[8]);
+                        const isPinching = rawDist < 35; // Pinch threshold in px
+
+                        sysStatus.innerText = `X: ${Math.round(indexTip.x)} / Y: ${Math.round(indexTip.y)}`;
+                        pinchStatus.innerText = `${Math.round(rawDist)} px`;
+
+                        // RETICLE RENDERING around pointer fingertip
+                        canvasCtx.beginPath();
+                        canvasCtx.arc(indexTip.x, indexTip.y, isPinching ? 15 : 24, 0, 2 * Math.PI);
+                        canvasCtx.strokeStyle = isPinching ? '#f87171' : (redAlertMode ? '#ef4444' : '#06b6d4');
+                        canvasCtx.lineWidth = 2;
+                        canvasCtx.stroke();
+                        
+                        // Reticle labels X/Y
+                        canvasCtx.font = "10px Share Tech Mono";
+                        canvasCtx.fillStyle = isPinching ? '#f87171' : '#ffffff';
+                        canvasCtx.fillText(`LOCK X:${Math.round(indexTip.x)} Y:${Math.round(indexTip.y)}`, indexTip.x + 30, indexTip.y - 10);
+                        canvasCtx.fillText(isPinching ? "PINCH LOCKED" : "ALIGN SEARCHING", indexTip.x + 30, indexTip.y + 5);
+
+                        // Trace lines connecting thumb and index
+                        canvasCtx.beginPath();
+                        canvasCtx.moveTo(thumbTip.x, thumbTip.y);
+                        canvasCtx.lineTo(indexTip.x, indexTip.y);
+                        canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                        canvasCtx.lineWidth = 1;
+                        canvasCtx.stroke();
+
+                        // Query all visible elements with class `.virtual-interactive`
+                        const interactables = Array.from(document.querySelectorAll('.virtual-interactive'))
+                            .filter(el => el.closest('.hidden') === null);
+                        
+                        let hoveredElement = null;
+
+                        interactables.forEach(el => {
+                            const rect = el.getBoundingClientRect();
+                            if (indexTip.x > rect.left && indexTip.x < rect.right && indexTip.y > rect.top && indexTip.y < rect.bottom) {
+                                hoveredElement = el;
+                                el.style.backgroundColor = redAlertMode ? "rgba(239, 68, 68, 0.4)" : "rgba(6, 182, 212, 0.4)";
+                                el.classList.add('border-cyan-300');
+                                
+                                // GESTURE A: PINCH TO CLICK IMMEDIATELY
+                                if (isPinching && !lastPinchState) {
+                                    el.classList.add('pinch-active');
+                                    el.click();
+                                    AudioSynth.playClick();
+                                    lastPinchState = true;
                                 }
                             } else {
-                                el.classList.remove('pinch-active');
-                                el.style.backgroundColor = "rgba(6, 182, 212, 0.4)"; // Hover
+                                if (el.id !== 'btn_off' && !el.classList.contains('btn-close')) {
+                                    el.style.backgroundColor = "";
+                                    el.classList.remove('border-cyan-300', 'pinch-active');
+                                }
+                            }
+                        });
+
+                        if (!isPinching) lastPinchState = false;
+
+                        // GESTURE B: AIR-HOVER DWELL CLICK
+                        const dwellFill = document.getElementById('dwell_fill');
+                        if (hoveredElement && !isPinching) {
+                            let time = hoverTimes.get(hoveredElement) || 0;
+                            time += 45; // loop rate approx. 45ms
+                            hoverTimes.set(hoveredElement, time);
+
+                            const pct = Math.min((time / 1000) * 100, 100);
+                            dwellFill.style.width = `${pct}%`;
+
+                            // Draw circular countdown indicator around pointer index
+                            canvasCtx.beginPath();
+                            canvasCtx.arc(indexTip.x, indexTip.y, 30, -Math.PI / 2, (-Math.PI / 2) + (2 * Math.PI * (pct / 100)));
+                            canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                            canvasCtx.lineWidth = 3;
+                            canvasCtx.stroke();
+
+                            if (time >= 1000) {
+                                hoveredElement.click();
+                                AudioSynth.playClick();
+                                hoverTimes.set(hoveredElement, 0); // Reset dwell
+                                dwellFill.style.width = '0%';
+                                
+                                // Visual flash indicator
+                                canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                                canvasCtx.beginPath();
+                                canvasCtx.arc(indexTip.x, indexTip.y, 45, 0, 2 * Math.PI);
+                                canvasCtx.fill();
                             }
                         } else {
-                            if(!el.classList.contains('btn-close') && el.id !== 'btn_off') el.style.backgroundColor = "";
-                        }
-                    });
-
-                    if (!isPinching) isClickLocked = false;
-
-                    // WINDOW DRAGGING
-                    if (!interactingWithUI && !mainOS.classList.contains('hidden')) {
-                        if (isPinching && !activeWindow) {
-                            const headers = document.querySelectorAll('.window-header');
-                            headers.forEach(header => {
-                                if (header.closest('.hidden')) return; 
-                                
-                                const rect = header.getBoundingClientRect();
-                                if (indexTip.x > rect.left && indexTip.x < rect.right && indexTip.y > rect.top && indexTip.y < rect.bottom) {
-                                    activeWindow = header.closest('.draggable-window');
-                                    focusWindow(activeWindow);
-                                    activeWindow.classList.add('pinch-active');
-
-                                    const windowRect = activeWindow.getBoundingClientRect();
-                                    grabOffset.x = indexTip.x - windowRect.left;
-                                    grabOffset.y = indexTip.y - windowRect.top;
-                                    speakJarvis("Moving interface.");
-                                }
-                            });
+                            hoverTimes.clear();
+                            dwellFill.style.width = '0%';
                         }
 
-                        if (activeWindow) {
+                        // --- 13. DRAGGABLE WINDOWS WITH PINCH GESTURE ---
+                        if (!hoveredElement && !mainOS.classList.contains('hidden') && !isSelfDestructing) {
                             if (isPinching) {
-                                activeWindow.style.left = `${indexTip.x - grabOffset.x}px`;
-                                activeWindow.style.top = `${indexTip.y - grabOffset.y}px`;
+                                if (!activeWindow) {
+                                    const headers = document.querySelectorAll('.window-header');
+                                    headers.forEach(header => {
+                                        if (header.closest('.hidden')) return;
+                                        const rect = header.getBoundingClientRect();
+                                        if (indexTip.x > rect.left && indexTip.x < rect.right && indexTip.y > rect.top && indexTip.y < rect.bottom) {
+                                            activeWindow = header.closest('.draggable-window');
+                                            focusWindow(activeWindow);
+                                            activeWindow.classList.add('pinch-active');
+                                            
+                                            const winRect = activeWindow.getBoundingClientRect();
+                                            grabOffset.x = indexTip.x - winRect.left;
+                                            grabOffset.y = indexTip.y - winRect.top;
+                                            AudioSynth.playChirp();
+                                            logToHUD(`Window: Dragging "${activeWindow.id}"`);
+                                        }
+                                    });
+                                }
+
+                                if (activeWindow) {
+                                    activeWindow.style.left = `${indexTip.x - grabOffset.x}px`;
+                                    activeWindow.style.top = `${indexTip.y - grabOffset.y}px`;
+                                }
                             } else {
-                                activeWindow.classList.remove('pinch-active');
-                                activeWindow = null;
+                                if (activeWindow) {
+                                    activeWindow.classList.remove('pinch-active');
+                                    activeWindow = null;
+                                }
                             }
                         }
                     }
                 }
+            } else {
+                sysStatus.innerText = "X: -- / Y: --";
+                pinchStatus.innerText = "-- px";
             }
             canvasCtx.restore();
         }
 
+        // Initialize MediaPipe Hands Loop
         const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+        hands.setOptions({
+            maxNumHands: 2,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.65,
+            minTrackingConfidence: 0.65
+        });
         hands.onResults(onResults);
 
-        const camera = new Camera(videoElement, { onFrame: async () => { await hands.send({image: videoElement}); }, width: 1280, height: 720 });
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({image: videoElement});
+            },
+            width: 1280,
+            height: 720
+        });
         camera.start();
     </script>
 </body>
